@@ -27,14 +27,15 @@ def init_camera(wifi):
 
 # 定时调用
 def wheel_timer():
-    pass
+    tim = Timer(-1)
+    tim.init(period=2000, mode=Timer.PERIODIC, callback=lambda t:print(2))
 
 if __name__ == '__main__':
     wifi = wifi_network()
     if wifi.init():
         init_camera(wifi)
+        _thread.start_new_thread(wheel_timer, ())
         # 电机控制定时器
         while True:
-            pass
-#         tim = Timer(-1)
-#         tim.init(period=2000, mode=Timer.PERIODIC, callback=wheel_timer())
+            time.sleep_ms(500)
+            t:print(5)

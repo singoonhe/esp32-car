@@ -43,7 +43,7 @@ class wifi_network():
                         time.sleep_ms(100)
                     self.ip = sta_if.ifconfig()[0]
                 except:
-                    print("Network connect failed")
+                    print("Network connect failed, please reset system")
         else:
             ap_if = network.WLAN(network.AP_IF)
             try:
@@ -51,7 +51,7 @@ class wifi_network():
                 ap_if.active(True)
                 self.ip = ap_if.ifconfig()[0]
             except:
-                print("Network ap failed, reset system")
+                print("Network ap failed, please reset system")
         # 添加网络线程
         if len(self.ip) > 1:
             _thread.start_new_thread(self.recv_data, ())
