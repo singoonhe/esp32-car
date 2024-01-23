@@ -3,7 +3,7 @@ import time
 import camera
 import _thread
 import cam_config as cc
-from machine import Timer
+from machine import Timer,Pin
 from wifi import wifi_network
 from data import network_data
 
@@ -30,8 +30,8 @@ def camera_loop():
 def init_camera():
     # set camera configuration
     cc.configure(camera, cc.ai_thinker)
-    camera.conf(cc.PIXFORMAT,cc.PIXFORMAT_RGB565) # both pixformat and 
-    camera.conf(cc.FRAMESIZE,cc.FRAMESIZE_QQVGA) # framesize MUST before camera.init
+    camera.conf(cc.PIXFORMAT,cc.PIXFORMAT_JPEG) # both pixformat and 
+    camera.conf(cc.FRAMESIZE,cc.FRAMESIZE_SVGA) # framesize MUST before camera.init
     camera.init()
     # other setting after init
     camera.quality(12)
@@ -70,10 +70,14 @@ if __name__ == '__main__':
 #     init_camera()
     # 电机控制定时器
 #     wheel_timer()
-    # 初始化网络
-#     wifi_info = [] # AP模式
-#     wifi_info = ['xingqiwan', 'xingqiwanWifi'] # 公司网络
-    wifi_info = ['HUAWEI-HF', 'HF123456'] # 家庭网络
+    # 初始化网络, 使用IO2是否接低电平来控制。
+    # 默认使用家庭网络
+    p2 = Pin(2, Pin.IN, Pin.PULL_UP)
+    if p2.value() == 0:
+        wifi_info = [] # AP模式
+    else:
+#       wifi_info = ['xingqiwan', 'xingqiwanWifi'] # 公司网络
+        wifi_info = ['HUAWEI-HF', 'HF123456'] # 家庭网络
     network_wifi = wifi_network(wifi_info)
     network_wifi.start_socket(recv_command_data)
 
