@@ -98,6 +98,7 @@ public class CarObject : MonoBehaviour
                     udpClient.Close();
                     udpClient = null;
                     wifiImg.sprite = wifiOff;
+                    Debug.Log($"Disconnect network because of time out");
                 }
                 // 发送移动事件，同时作为心跳使用
                 SendCmdData("Move", sendDirValue.ToString() + "|" + sendSpeedValue.ToString());
@@ -108,7 +109,11 @@ public class CarObject : MonoBehaviour
     // 开始连接网络
     private void StartConnect(string ipStr)
     {
-        ipInput.text = ipStr;
+        if (ipStr.Length < 8)
+            return;
+        Debug.Log($"Start connect {ipStr}");
+
+        ipText.text = ipStr;
         wifiImg.sprite = wifiOff;
         if (udpClient != null)
         {
@@ -120,12 +125,14 @@ public class CarObject : MonoBehaviour
         udpClient.BeginReceive(new AsyncCallback(OnReceived), udpClient);
         // 发送登录命令
         SendCmdData("Login");
+        // 连接时迅速检测是否连接成功
+        heartCount = 3;
     }
 
     // 发送指定命令
     private void SendCmdData(string typeName, string typeValue = null)
     {
-        if (udpClient.Available > 0)
+        if (udpClient != null)
         {
             var dstDic = new Dictionary<string, string>() {{"Type",typeName}};
             if (typeValue != null)
@@ -188,14 +195,19 @@ public class CarObject : MonoBehaviour
                 byte[] reconstructedData = Enumerable.Range(0, receivedSlices[frameIndex].Count)
                     .SelectMany(i => receivedSlices[frameIndex][i])
                     .ToArray();
-
-                // 创建Texture2D，并加载JPG图片数据
-                Texture2D texture = new Texture2D(2, 2);
-                texture.LoadImage(reconstructedData);
-                // 将Texture2D设置给RawImage组件
-                frameImg.texture = texture;
-                // 重置显示大小
-                (frameImg.transform as RectTransform).sizeDelta = new Vector2(texture.width * Screen.height / texture.height, Screen.height);
+                Debug.Log($"OnReceived {frameIndex}, {stepCount}, {stepIndex}, {reconstructedData.Length}");
+                
+                File.WriteAllBytes(Application.persistentDataPath + "/cam.jpg", reconstructedData);
+                Texture2D texture = new Texture2D(1024, 1024);
+                Debug.Log($"texture ");
+                if (texture.LoadImage(reconstructedData))
+                {
+                    Debug.Log($"texture1 {texture}, {texture.width}, {texture.height}");
+                    // 将Texture2D设置给RawImage组件
+                    frameImg.texture = texture;
+                    // 重置显示大小
+                    (frameImg.transform as RectTransform).sizeDelta = new Vector2(texture.width * Screen.height / texture.height, Screen.height);
+                }
             }
         }
         else

@@ -15,9 +15,10 @@ network_wifi = None
 # 摄像头截图循环
 def camera_loop():
     while True:
-#         time.sleep(5)
+        time.sleep(5)
         if command_target != None:
             img=camera.capture()
+            print("capture:" + str(len(img)))
             # 分段发送数据
             send_list = network_data.pack(False, img)
             for value in send_list:
@@ -31,7 +32,7 @@ def init_camera():
     # set camera configuration
     cc.configure(camera, cc.ai_thinker)
     camera.conf(cc.PIXFORMAT,cc.PIXFORMAT_JPEG) # both pixformat and 
-    camera.conf(cc.FRAMESIZE,cc.FRAMESIZE_SVGA) # framesize MUST before camera.init
+    camera.conf(cc.FRAMESIZE,cc.FRAMESIZE_QQVGA) # framesize MUST before camera.init
     camera.init()
     # other setting after init
     camera.quality(12)
@@ -67,7 +68,7 @@ def wheel_timer():
 
 if __name__ == '__main__':
     # 初始化摄像机
-#     init_camera()
+    init_camera()
     # 电机控制定时器
 #     wheel_timer()
     # 初始化网络, 使用IO2是否接低电平来控制。
