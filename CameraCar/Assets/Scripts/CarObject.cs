@@ -158,7 +158,7 @@ public class CarObject : MonoBehaviour
         UdpClient socket = result.AsyncState as UdpClient;
         IPEndPoint source = new IPEndPoint(0, 0);
         byte[] message = socket.EndReceive(result, ref source);
-        if (message[0] == 0)
+        if (message[0] == '0')
         {
             // camera帧数据，也被认为是一种心跳包
             heartCount = 0;
@@ -182,7 +182,7 @@ public class CarObject : MonoBehaviour
             int stepIndex = (message[4]) << 8 | message[5];
             byte[] sliceData = message.Skip(6).ToArray();
             receivedSlices[frameIndex][stepIndex] = sliceData;
-            if (receivedSlices[frameIndex].Count >= (stepIndex + 1))
+            if (receivedSlices[frameIndex].Count >= stepCount)
             {
                 // 按顺序重组数据
                 byte[] reconstructedData = Enumerable.Range(0, receivedSlices[frameIndex].Count)
