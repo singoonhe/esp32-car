@@ -1,12 +1,8 @@
-#入口功能
+# ESP32-C3通过microbit通信
 import time
-import camera
-import _thread
-import cam_config as cc
 from machine import Timer,Pin
 from wifi import wifi_network
 from data import network_data
-from wheel import wheel_timer
 
 # 指定的数据接收者
 command_target = None
@@ -14,34 +10,10 @@ command_target = None
 network_wifi = None
 # 网络检查，未收到数据的计数
 network_check = 0
-# 车轮控制对象
-car_wheel = None
-
-# 摄像头截图循环
-def camera_loop():
-    while True:
-        time.sleep(5)
-        if command_target != None:
-            img=camera.capture()
-            print("capture:" + str(len(img)))
-            # 分段发送数据
-            send_list = network_data.pack(False, img)
-            for value in send_list:
-                network_wifi.send_data(value, command_target)
-        else:
-            # 连接未准备好时，减缓更新
-            time.sleep_ms(100)
-
-# 初始化摄像头
-def init_camera():
-    # set camera configuration
-    cc.configure(camera, cc.ai_thinker)
-    camera.conf(cc.PIXFORMAT,cc.PIXFORMAT_JPEG) # both pixformat and 
-    camera.conf(cc.FRAMESIZE,cc.FRAMESIZE_QQVGA) # framesize MUST before camera.init
-    camera.init()
-    # other setting after init
-    camera.quality(12)
-    _thread.start_new_thread(camera_loop, ())
+# i2c通信对象
+micro_i2c = None
+# i2c通信地址
+micro_addr = None
 
 # 接收到命令数据
 def recv_command_data(data, addr):
@@ -58,9 +30,26 @@ def recv_command_data(data, addr):
             # 接收到移动事件
             var move_info = command_data['Value'].split('|')
             if len(move_info) >= 2:
-                # 移动方向和速度
-                car_wheel.set_speed_dir(int(move_info[0]), int(move_info[1]))
-            
+                # 发送移动方向
+                move_dir = int(move_info[0])
+                if move_dir > 315 && move_dir <= 45:
+                    send_i2c_byte(11)
+                elif move_dir > 45 && move_dir <= 135:
+                    send_i2c_byte(12)
+                elif move_dir > 135 && move_dir <= 225:
+                    send_i2c_byte(13)
+                elif move_dir > 225 && move_dir <= 315:
+                    send_i2c_byte(14)
+                else: # move_dir == -1
+                    send_i2c_byte(0)
+                # 发送速度
+                send_i2c_byte(int(move_info[1]))
+
+# 发送i2c数据
+def send_i2c_byte(i2c_byte):
+    if micro_addr != None:
+        micro_i2c.writeto(micro_addr, bytes([i2c_byte]))
+    
 # 发送命令数据
 def send_command_data(cmd_type, cmd_value=None):
     if command_target == None:
@@ -80,20 +69,24 @@ def check_wifi_target(t):
         print('clear command target because of time out')
 
 if __name__ == '__main__':
-    # 初始化摄像机
-    init_camera()
-    # 电机控制器, 指定SCL和SDL引脚
-    car_wheel = wheel_timer(12, 13)
+    # 初始化通信i2c
+    micro_i2c = I2C(scl=Pin(12), sda=Pin(12), freq=100000)
+    i2c_devices = micro_i2c.scan()
+    if len(i2c_devices) > 0:
+        micro_addr = i2c_devices[0]
+    else:
+        print('cannot find i2c device')
+        return 0
     # 开启网络超时检查
     wifi_timer = Timer()
     wifi_timer.init(period=500, mode=Timer.PERIODIC, callback=check_wifi_target)
     # 初始化网络, 使用IO2是否接低电平来控制使用AP模式
     wifi_info = {'ap_name' : 'CAR_HGH', 'ap_psd' : 'HF123456', 'ap_pin':2}
     # 默认使用家庭网络
-    wifi_info['ssid'] = 'wzry_4_4'
-    wifi_info['psd'] = 'xingqiwanWifi'
-#     wifi_info['ssid'] = 'HUAWEI-HF'
-#     wifi_info['psd'] = 'HF123456'
+    wifi_info['ssid'] = 'HUAWEI-HF'
+    wifi_info['psd'] = 'HF123456'
     network_wifi = wifi_network(wifi_info)
     network_wifi.start_socket(recv_command_data)
+
+
 

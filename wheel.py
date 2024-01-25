@@ -8,8 +8,8 @@ class wheel_timer:
     # 初始化方法
     def __init__(self, scl, sda):
         # 初始化i2c
-        i2c = I2C(scl=Pin(scl), sda=Pin(sda), freq=100000)
-        i2c_devices = i2c.scan()
+        self.i2c = I2C(scl=Pin(scl), sda=Pin(sda), freq=100000)
+        i2c_devices = self.i2c.scan()
         # 最终输出值
         self.write_value = 0
         # 当前的占空值
@@ -61,7 +61,7 @@ class wheel_timer:
         if self.pwm_right > self.cur_pwm_cnt:
             i2c_byte |= self.move_front and 0b00100010 or 0b00010001
         # 发送当前的i2c数据
-        i2c.writeto(self.i2c_addr, bytes([i2c_byte]))
+        self.i2c.writeto(self.i2c_addr, bytes([i2c_byte]))
         # 模拟PWM占空比
         self.cur_pwm_cnt += 1
         if self.cur_pwm_cnt >= PWM_FRAME_COUNT:
