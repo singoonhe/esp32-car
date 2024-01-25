@@ -19,12 +19,16 @@ public class CarObject : MonoBehaviour
     private int         dstPort = 7890;
     private int         heartCount = 0;//心跳
     private Coroutine   timerCoroutine;// 网络连接检查器
+
     private int         dirPointId = -1;
     private Vector2     dirOrginPos;    // 方向键的原始位置
     private int         speedPointId = -1;
     private const float dirMoveDis = 75; // 方向键移动的最大距离
     private int         sendDirValue = -1;  // 移动的方向值
-    private int         sendSpeedValue = 6;// 移动的速度值
+    private int         sendSpeedValue = 6; // 移动的速度值
+
+    private byte[]      cameraBytes = null; // Camera数据缓存，在主线程中执行
+    private bool        isWifiLogin = false;// 网络连接上的状态
     // 绑定结点
     public InputField   ipInput;
     public Text         ipText;     // ip地址显示栏
@@ -59,7 +63,7 @@ public class CarObject : MonoBehaviour
         AddTriggerEvent(speedTrigger, EventTriggerType.EndDrag, OnSpeedEndDrag);
 
         // 启动连接判断定时器
-        timerCoroutine = StartCoroutine(StartTimer(0.5f));
+        timerCoroutine = StartCoroutine(StartNetCheckTimer(0.5f));
 
         // 读取历史连接地址
         configPath = Application.persistentDataPath + "/ip.txt";
@@ -84,7 +88,7 @@ public class CarObject : MonoBehaviour
     }
 
     // 网络检查定时器
-    IEnumerator StartTimer(float interval)
+    IEnumerator StartNetCheckTimer(float interval)
     {
         while (true)
         {
@@ -145,31 +149,36 @@ public class CarObject : MonoBehaviour
     }
 
     // 接收到的命令处理
-    private void DealRecvCmd(Dictionary<string, string> cmdDic)
+    private void DealRecvCmd(Dictionary<string, object> cmdDic)
     {
         if (cmdDic.ContainsKey("Login"))
         {
             // 登陆成功数据包
-            heartCount = 0;
-            wifiImg.sprite = wifiOn;
+            // 标记状态，仅主线程可操作Image
+            isWifiLogin = true;
+            Debug.Log($"Connect network success");
         }
-        else if (cmdDic.ContainsKey("Heart"))
-        {
-            // 心跳包
-            heartCount = 0;
-        }
+        //else if (cmdDic.ContainsKey("Heart"))
+        //{
+        //    // 心跳包
+        //}
     }
 
     void OnReceived(IAsyncResult result)
     {
+        if (udpClient == null)
+        {
+            return;
+        }
+
         UdpClient socket = result.AsyncState as UdpClient;
         IPEndPoint source = new IPEndPoint(0, 0);
         byte[] message = socket.EndReceive(result, ref source);
+        // 接收到数据，计数重置
+        heartCount = 0;
         if (message[0] == '0')
         {
-            // camera帧数据，也被认为是一种心跳包
-            heartCount = 0;
-            // 第x帧
+            // 第xCamera帧数据
             int frameIndex = message[1];
             if (!receivedSlices.ContainsKey(frameIndex))
             {
@@ -191,36 +200,50 @@ public class CarObject : MonoBehaviour
             receivedSlices[frameIndex][stepIndex] = sliceData;
             if (receivedSlices[frameIndex].Count >= stepCount)
             {
-                // 按顺序重组数据
-                byte[] reconstructedData = Enumerable.Range(0, receivedSlices[frameIndex].Count)
+                // 按顺序重组数据并保存，仅主线程中才能重置Texture
+                cameraBytes = Enumerable.Range(0, receivedSlices[frameIndex].Count)
                     .SelectMany(i => receivedSlices[frameIndex][i])
                     .ToArray();
-                Debug.Log($"OnReceived {frameIndex}, {stepCount}, {stepIndex}, {reconstructedData.Length}");
-                
-                File.WriteAllBytes(Application.persistentDataPath + "/cam.jpg", reconstructedData);
-                Texture2D texture = new Texture2D(1024, 1024);
-                Debug.Log($"texture ");
-                if (texture.LoadImage(reconstructedData))
-                {
-                    Debug.Log($"texture1 {texture}, {texture.width}, {texture.height}");
-                    // 将Texture2D设置给RawImage组件
-                    frameImg.texture = texture;
-                    // 重置显示大小
-                    (frameImg.transform as RectTransform).sizeDelta = new Vector2(texture.width * Screen.height / texture.height, Screen.height);
-                }
+                Debug.Log($"OnReceived {frameIndex}, {stepCount}, {stepIndex}, {cameraBytes.Length}");
             }
         }
         else
         {
             // 控制命令数据
-            string returnData = Encoding.UTF8.GetString(message);
-            var retCmd = Json.Decode(returnData.Substring(1)) as Dictionary<string, string>;
+            string commandData = Encoding.UTF8.GetString(message.Skip(1).ToArray());
+            Debug.Log($"OnReceived cammand {commandData}");
+            var retCmd = Json.Decode(commandData) as Dictionary<string, object>;
             if (retCmd != null)
             {
                 DealRecvCmd(retCmd);
             }
         }
         socket.BeginReceive(new AsyncCallback(OnReceived), socket);
+    }
+
+    private void Update()
+    {
+        // Camera数据主线程中重置
+        if (cameraBytes != null)
+        {
+            Texture2D texture = new Texture2D(1024, 1024);
+            if (texture.LoadImage(cameraBytes))
+            {
+                Debug.Log($"texture1 {texture}, {texture.width}, {texture.height}");
+                // 将Texture2D设置给RawImage组件
+                frameImg.texture = texture;
+                // 重置显示大小
+                (frameImg.transform as RectTransform).sizeDelta = new Vector2(texture.width * Screen.height / texture.height, Screen.height);
+            }
+            // 将camera数据置空
+            cameraBytes = null;
+        }
+        // wifi状态主线程中重置
+        if (isWifiLogin)
+        {
+            wifiImg.sprite = wifiOn;
+            isWifiLogin = false;
+        }
     }
 
     private void OnDestroy()
