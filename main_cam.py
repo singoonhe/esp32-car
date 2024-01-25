@@ -29,8 +29,6 @@ def camera_loop():
             send_list = network_data.pack(False, img)
             for value in send_list:
                 network_wifi.send_data(value, command_target)
-            # 释放内存
-            gc.collect()
         else:
             # 连接未准备好时，减缓更新
             time.sleep_ms(100)
@@ -63,6 +61,8 @@ def recv_command_data(data, addr):
             if len(move_info) >= 2:
                 # 移动方向和速度
                 car_wheel.set_speed_dir(int(move_info[0]), int(move_info[1]))
+    # 释放内存
+    gc.collect()
             
 # 发送命令数据
 def send_command_data(cmd_type, cmd_value=None):

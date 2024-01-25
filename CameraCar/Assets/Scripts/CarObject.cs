@@ -151,14 +151,15 @@ public class CarObject : MonoBehaviour
     // 接收到的命令处理
     private void DealRecvCmd(Dictionary<string, object> cmdDic)
     {
-        if (cmdDic.ContainsKey("Login"))
+        var typeCmd = cmdDic["Type"] as string;
+        if (typeCmd == "Login")
         {
             // 登陆成功数据包
             // 标记状态，仅主线程可操作Image
             isWifiLogin = true;
             Debug.Log($"Connect network success");
         }
-        //else if (cmdDic.ContainsKey("Heart"))
+        //else if (typeCmd == "Heart")
         //{
         //    // 心跳包
         //}
