@@ -19,11 +19,11 @@ public class CarObject : MonoBehaviour
     private int         dstPort = 7890;
     private int         heartCount = 0;//心跳
     private Coroutine   timerCoroutine;// 网络连接检查器
-
+    
+    private Vector2     dirOrginPos;        // 方向键的原始位置
+    private const float dirMoveDis = 75;    // 方向键移动的最大距离
     private int         dirPointId = -1;
-    private Vector2     dirOrginPos;    // 方向键的原始位置
     private int         speedPointId = -1;
-    private const float dirMoveDis = 75; // 方向键移动的最大距离
     private int         sendDirValue = -1;  // 移动的方向值
     private int         sendSpeedValue = 6; // 移动的速度值
 
@@ -63,7 +63,7 @@ public class CarObject : MonoBehaviour
         AddTriggerEvent(speedTrigger, EventTriggerType.EndDrag, OnSpeedEndDrag);
 
         // 启动连接判断定时器
-        timerCoroutine = StartCoroutine(StartNetCheckTimer(0.5f));
+        timerCoroutine = StartCoroutine(StartNetCheckTimer(0.1f));
 
         // 读取历史连接地址
         configPath = Application.persistentDataPath + "/ip.txt";
@@ -97,7 +97,7 @@ public class CarObject : MonoBehaviour
             heartCount += 1;
             if (udpClient != null)
             {
-                if (heartCount > 4)
+                if (heartCount > 20)
                 {
                     udpClient.Close();
                     udpClient = null;
