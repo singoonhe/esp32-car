@@ -1,5 +1,6 @@
 # ESP32-CAM直接控制小车功能
 import time
+import gc
 import camera
 import _thread
 import cam_config as cc
@@ -20,7 +21,7 @@ car_wheel = None
 # 摄像头截图循环
 def camera_loop():
     while True:
-        time.sleep(5)
+#         time.sleep(5)
         if command_target != None:
             img=camera.capture()
             print("capture:" + str(len(img)))
@@ -28,6 +29,8 @@ def camera_loop():
             send_list = network_data.pack(False, img)
             for value in send_list:
                 network_wifi.send_data(value, command_target)
+            # 释放内存
+            gc.collect()
         else:
             # 连接未准备好时，减缓更新
             time.sleep_ms(100)
@@ -52,11 +55,11 @@ def recv_command_data(data, addr):
         network_check = 0
         if command_data['Type'] == 'Login':
             command_target = addr
-            send_command_data('Login')
             print('set command target %s' % addr[0])
+            send_command_data('Login')
         elif command_data['Type'] == 'Move':
             # 接收到移动事件
-            var move_info = command_data['Value'].split('|')
+            move_info = command_data['Value'].split('|')
             if len(move_info) >= 2:
                 # 移动方向和速度
                 car_wheel.set_speed_dir(int(move_info[0]), int(move_info[1]))
@@ -74,8 +77,9 @@ def send_command_data(cmd_type, cmd_value=None):
 # wifi网络检查方法
 def check_wifi_target(t):
     global command_target
+    global network_check
     network_check += 1
-    if command_target != None && network_check > 4:
+    if command_target != None and network_check > 4:
         command_target = None
         print('clear command target because of time out')
 
@@ -85,7 +89,7 @@ if __name__ == '__main__':
     # 电机控制器, 指定SCL和SDL引脚
     car_wheel = wheel_timer(12, 13)
     # 开启网络超时检查
-    wifi_timer = Timer()
+    wifi_timer = Timer(-1)
     wifi_timer.init(period=500, mode=Timer.PERIODIC, callback=check_wifi_target)
     # 初始化网络, 使用IO2是否接低电平来控制使用AP模式
     wifi_info = {'ap_name' : 'CAR_HGH', 'ap_psd' : 'HF123456', 'ap_pin':2}

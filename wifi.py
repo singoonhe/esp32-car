@@ -4,6 +4,7 @@ import time
 import _thread
 import network
 from socket import *
+from machine import Pin
 
 class wifi_network:
     # 初始化方法

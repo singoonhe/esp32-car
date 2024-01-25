@@ -1,6 +1,6 @@
 # ESP32-C3通过microbit通信
 import time
-from machine import Timer,Pin
+from machine import Timer,Pin,SoftI2C
 from wifi import wifi_network
 from data import network_data
 
@@ -28,17 +28,17 @@ def recv_command_data(data, addr):
             print('set command target %s' % addr[0])
         elif command_data['Type'] == 'Move':
             # 接收到移动事件
-            var move_info = command_data['Value'].split('|')
+            move_info = command_data['Value'].split('|')
             if len(move_info) >= 2:
                 # 发送移动方向
                 move_dir = int(move_info[0])
-                if move_dir > 315 && move_dir <= 45:
+                if move_dir > 315 and move_dir <= 45:
                     send_i2c_byte(11)
-                elif move_dir > 45 && move_dir <= 135:
+                elif move_dir > 45 and move_dir <= 135:
                     send_i2c_byte(12)
-                elif move_dir > 135 && move_dir <= 225:
+                elif move_dir > 135 and move_dir <= 225:
                     send_i2c_byte(13)
-                elif move_dir > 225 && move_dir <= 315:
+                elif move_dir > 225 and move_dir <= 315:
                     send_i2c_byte(14)
                 else: # move_dir == -1
                     send_i2c_byte(0)
@@ -64,13 +64,13 @@ def send_command_data(cmd_type, cmd_value=None):
 def check_wifi_target(t):
     global command_target
     network_check += 1
-    if command_target != None && network_check > 4:
+    if command_target != None and network_check > 4:
         command_target = None
         print('clear command target because of time out')
 
 if __name__ == '__main__':
     # 初始化通信i2c
-    micro_i2c = I2C(scl=Pin(12), sda=Pin(12), freq=100000)
+    micro_i2c = SoftI2C(scl=Pin(12), sda=Pin(12), freq=100000)
     i2c_devices = micro_i2c.scan()
     if len(i2c_devices) > 0:
         micro_addr = i2c_devices[0]
@@ -78,7 +78,7 @@ if __name__ == '__main__':
         print('cannot find i2c device')
         return 0
     # 开启网络超时检查
-    wifi_timer = Timer()
+    wifi_timer = Timer(-1)
     wifi_timer.init(period=500, mode=Timer.PERIODIC, callback=check_wifi_target)
     # 初始化网络, 使用IO2是否接低电平来控制使用AP模式
     wifi_info = {'ap_name' : 'CAR_HGH', 'ap_psd' : 'HF123456', 'ap_pin':2}

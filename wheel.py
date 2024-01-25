@@ -1,5 +1,5 @@
 #车轮控制类
-from machine import Timer,Pin
+from machine import Timer, Pin, SoftI2C
 
 # 模拟当前的总频值
 PWM_FRAME_COUNT = 10
@@ -8,7 +8,7 @@ class wheel_timer:
     # 初始化方法
     def __init__(self, scl, sda):
         # 初始化i2c
-        self.i2c = I2C(scl=Pin(scl), sda=Pin(sda), freq=100000)
+        self.i2c = SoftI2C(scl=Pin(scl), sda=Pin(sda), freq=100000)
         i2c_devices = self.i2c.scan()
         # 最终输出值
         self.write_value = 0
@@ -22,7 +22,7 @@ class wheel_timer:
         # 开启车轮改变定时器
         if len(i2c_devices) > 0:
             self.i2c_addr = i2c_devices[0]
-            wheel_timer = Timer()
+            wheel_timer = Timer(-1)
             # 1ms定时器，方便模拟PWM
             wheel_timer.init(period=1, mode=Timer.PERIODIC, callback=self.wheel_timer_callback)
         else:
@@ -34,7 +34,7 @@ class wheel_timer:
             # 当前方向为0，停止移动
             self.pwm_left = 0
             self.pwm_right = 0
-        elif move_dir > 225 && move_dir < 315:
+        elif move_dir > 225 and move_dir < 315:
             # 左右一起倒车
             self.move_front = False
             self.pwm_left = speed
