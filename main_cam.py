@@ -24,7 +24,7 @@ def camera_loop():
 #         time.sleep(5)
         if command_target != None:
             img=camera.capture()
-            print("capture:" + str(len(img)))
+#             print("capture:" + str(len(img)))
             # 分段发送数据
             send_list = network_data.pack(False, img)
             for value in send_list:
@@ -47,7 +47,7 @@ def init_camera():
     # https://github.com/singoonhe/micropython-camera-driver
     # ESP32-CAM (default configuration) - https://bit.ly/2Ndn8tN
     camera.init(0, format=camera.JPEG, fb_location=camera.PSRAM)
-    camera.framesize(camera.FRAME_QVGA)
+    camera.framesize(camera.FRAME_XGA)
     # The options are the following:
     # FRAME_96X96 FRAME_QQVGA FRAME_QCIF FRAME_HQVGA FRAME_240X240
     # FRAME_QVGA FRAME_CIF FRAME_HVGA FRAME_VGA FRAME_SVGA
@@ -115,10 +115,10 @@ if __name__ == '__main__':
     # 初始化网络, 使用IO2是否接低电平来控制使用AP模式
     wifi_info = {'ap_name' : 'CAR_HGH', 'ap_psd' : 'HF123456', 'ap_pin':2}
     # 默认使用家庭网络
-    wifi_info['ssid'] = 'wzry_4_4'
-    wifi_info['psd'] = 'xingqiwanWifi'
-#     wifi_info['ssid'] = 'HUAWEI-HF'
-#     wifi_info['psd'] = 'HF123456'
+#     wifi_info['ssid'] = 'wzry_4_4'
+#     wifi_info['psd'] = 'xingqiwanWifi'
+    wifi_info['ssid'] = 'HUAWEI-HF'
+    wifi_info['psd'] = 'HF123456'
     network_wifi = wifi_network(wifi_info)
     network_wifi.start_socket(recv_command_data, sys_interrupt_call)
 

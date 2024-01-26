@@ -5,7 +5,7 @@ import math
 import struct
 
 # 数据块长度定义(0(帧ID)(总帧2字节)(当前帧2字节))
-CAMERA_FRAME_LEN = 1024 - 1 - 1 - 2 - 2
+CAMERA_FRAME_LEN = 1024*60 - 1 - 1 - 2 - 2
 
 class network_data:
     # 静态变量

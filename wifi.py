@@ -72,7 +72,7 @@ class wifi_network:
         while True: #接收数据receiving data
             try:
                 data, addr=self.udp_socket.recvfrom(1024)
-                print('received:',data,'from',addr)
+#                 print('received:',data,'from',addr)
                 recv_call(data, addr)
             except OSError:
                 # 没有数据包可用了
@@ -84,8 +84,8 @@ class wifi_network:
     # 发送指定的数据
     def send_data(self, data, addr):
         if self.udp_socket != None and self.socket_enabled:
-            print('send message length: %d' % len(data))
             self.udp_socket.sendto(data, addr)
+#             print('send message length: %d' % len(data))
             
     # 设置Socket是否可用
     def set_enable(self, enabled):
