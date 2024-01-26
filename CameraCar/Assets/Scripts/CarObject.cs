@@ -205,14 +205,14 @@ public class CarObject : MonoBehaviour
                 cameraBytes = Enumerable.Range(0, receivedSlices[frameIndex].Count)
                     .SelectMany(i => receivedSlices[frameIndex][i])
                     .ToArray();
-                Debug.Log($"OnReceived {frameIndex}, {stepCount}, {stepIndex}, {cameraBytes.Length}");
+                // Debug.Log($"OnReceived {frameIndex}, {stepCount}, {stepIndex}, {cameraBytes.Length}");
             }
         }
         else
         {
             // 控制命令数据
             string commandData = Encoding.UTF8.GetString(message.Skip(1).ToArray());
-            Debug.Log($"OnReceived cammand {commandData}");
+            // Debug.Log($"OnReceived cammand {commandData}");
             var retCmd = Json.Decode(commandData) as Dictionary<string, object>;
             if (retCmd != null)
             {
@@ -230,7 +230,7 @@ public class CarObject : MonoBehaviour
             Texture2D texture = new Texture2D(1024, 1024);
             if (texture.LoadImage(cameraBytes))
             {
-                Debug.Log($"texture1 {texture}, {texture.width}, {texture.height}");
+                // Debug.Log($"texture1 {texture}, {texture.width}, {texture.height}");
                 // 将Texture2D设置给RawImage组件
                 frameImg.texture = texture;
                 // 重置显示大小
@@ -267,6 +267,15 @@ public class CarObject : MonoBehaviour
         if (udpClient == null)
         {
             StartConnect(ipText.text);
+        }
+        else
+        {
+            // 先发送Logout，再关闭socket
+            SendCmdData("Logout");
+            udpClient.Close();
+            udpClient = null;
+            wifiImg.sprite = wifiOff;
+            Debug.Log($"Disconnect network by hand");
         }
     }
 

@@ -69,6 +69,10 @@ def recv_command_data(data, addr):
             network_wifi.set_enable(True)
             print('set command target %s' % addr[0])
             send_command_data('Login')
+        elif command_data['Type'] == 'Logout':
+            network_wifi.set_enable(False)
+            command_target = None
+            print('clear command target by logout')
         elif command_data['Type'] == 'Move':
             # 接收到移动事件
             move_info = command_data['Value'].split('|')
