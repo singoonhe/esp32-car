@@ -23,6 +23,8 @@ class wifi_network:
         # 初始化网络
         self.ip = '0'
         self.udp_socket = None
+        # 控制是否可以发送数据，避免target为空了还在发送数据
+        self.socket_enabled = False
         # 使用指定引脚的电平来判断网络模式
         p2 = Pin(sta_info['ap_pin'], Pin.IN, Pin.PULL_UP)
         if p2.value() == 0:
@@ -57,7 +59,7 @@ class wifi_network:
             
     # 开始接受网络连接
     # recv_call：接收事件的回调
-    def start_socket(self, recv_call):
+    def start_socket(self, recv_call, interrupt_call):
         if len(self.ip) < 8:
             print('network init failed')
             return
@@ -75,12 +77,19 @@ class wifi_network:
             except OSError:
                 # 没有数据包可用了
                 pass
+            except KeyboardInterrupt:
+                interrupt_call()
+                break
             
     # 发送指定的数据
     def send_data(self, data, addr):
-        if self.udp_socket != None:
+        if self.udp_socket != None and self.socket_enabled:
             print('send message length: %d' % len(data))
             self.udp_socket.sendto(data, addr)
+            
+    # 设置Socket是否可用
+    def set_enable(self, enabled):
+        self.socket_enabled = enabled
             
     # 保存配置文件
 #     def save_config(self):

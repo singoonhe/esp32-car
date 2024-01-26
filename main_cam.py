@@ -3,7 +3,7 @@ import time
 import gc
 import camera
 import _thread
-import cam_config as cc
+# import cam_config as cc
 from machine import Timer,Pin
 from wifi import wifi_network
 from data import network_data
@@ -35,13 +35,26 @@ def camera_loop():
 
 # 初始化摄像头
 def init_camera():
+    # https://github.com/singoonhe/esp32-cam-micropython-2022
     # set camera configuration
-    cc.configure(camera, cc.ai_thinker)
-    camera.conf(cc.PIXFORMAT,cc.PIXFORMAT_JPEG) # both pixformat and 
-    camera.conf(cc.FRAMESIZE,cc.FRAMESIZE_QQVGA) # framesize MUST before camera.init
-    camera.init()
-    # other setting after init
-    camera.quality(12)
+#     cc.configure(camera, cc.ai_thinker)
+#     camera.conf(cc.PIXFORMAT,cc.PIXFORMAT_JPEG) # both pixformat and 
+#     camera.conf(cc.FRAMESIZE,cc.FRAMESIZE_QQVGA) # framesize MUST before camera.init
+#     camera.init()
+#     # other setting after init
+#     camera.quality(12)
+    
+    # https://github.com/singoonhe/micropython-camera-driver
+    # ESP32-CAM (default configuration) - https://bit.ly/2Ndn8tN
+    camera.init(0, format=camera.JPEG, fb_location=camera.PSRAM)
+    camera.framesize(camera.FRAME_QVGA)
+    # The options are the following:
+    # FRAME_96X96 FRAME_QQVGA FRAME_QCIF FRAME_HQVGA FRAME_240X240
+    # FRAME_QVGA FRAME_CIF FRAME_HVGA FRAME_VGA FRAME_SVGA
+    # FRAME_XGA FRAME_HD FRAME_SXGA FRAME_UXGA FRAME_FHD
+    # FRAME_P_HD FRAME_P_3MP FRAME_QXGA FRAME_QHD FRAME_WQXGA
+    # FRAME_P_FHD FRAME_QSXGA
+    # Check this link for more information: https://bit.ly/2YOzizz
     _thread.start_new_thread(camera_loop, ())
 
 # 接收到命令数据
@@ -53,6 +66,7 @@ def recv_command_data(data, addr):
         network_check = 0
         if command_data['Type'] == 'Login':
             command_target = addr
+            network_wifi.set_enable(True)
             print('set command target %s' % addr[0])
             send_command_data('Login')
         elif command_data['Type'] == 'Move':
@@ -80,8 +94,15 @@ def check_wifi_target(t):
     global network_check
     network_check += 1
     if command_target != None and network_check > 4:
+        network_wifi.set_enable(False)
         command_target = None
         print('clear command target because of time out')
+        
+# 系统中断回调方法():
+def sys_interrupt_call():
+    print('system interrupt')
+    # 释放camera
+    camera.deinit()
 
 if __name__ == '__main__':
     # 初始化摄像机
@@ -99,5 +120,5 @@ if __name__ == '__main__':
 #     wifi_info['ssid'] = 'HUAWEI-HF'
 #     wifi_info['psd'] = 'HF123456'
     network_wifi = wifi_network(wifi_info)
-    network_wifi.start_socket(recv_command_data)
+    network_wifi.start_socket(recv_command_data, sys_interrupt_call)
 
