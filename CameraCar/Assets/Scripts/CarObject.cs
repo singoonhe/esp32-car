@@ -246,6 +246,14 @@ public class CarObject : MonoBehaviour
             wifiImg.sprite = wifiOn;
             isWifiLogin = false;
         }
+        // 退出应用
+        if (Application.platform == RuntimePlatform.Android)
+        {
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                Application.Quit();
+            }
+        }
     }
 
     private void OnDestroy()
