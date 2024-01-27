@@ -145,6 +145,7 @@ public class CarObject : MonoBehaviour
             }
             byte[] data = Encoding.UTF8.GetBytes(Json.Encode(dstDic));
             udpClient.Send(data, data.Length);
+            // Debug.Log($"Send message : {typeValue}");
         }
     }
 
@@ -342,7 +343,7 @@ public class CarObject : MonoBehaviour
 
     private void SetDirAngle(Vector2 dirV)
     {
-        if (dirV.x < float.Epsilon && dirV.y < float.Epsilon )
+        if (Mathf.Abs(dirV.x) < float.Epsilon && Mathf.Abs(dirV.y) < float.Epsilon )
         {
             sendDirValue = -1;
         }
@@ -369,6 +370,8 @@ public class CarObject : MonoBehaviour
     {
         dirImg.transform.localPosition = dirOrginPos;
         dirPointId = -1;
+        // 取消位置事件发送
+        SetDirAngle(Vector2.zero);
     }
 
     // 速度拖动事件
