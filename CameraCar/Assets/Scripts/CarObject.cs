@@ -76,6 +76,8 @@ public class CarObject : MonoBehaviour
                 StartConnect(ipAddress.ToString());
             }
         }
+        // 限制帧率
+        Application.targetFrameRate = 30;
     }
 
     // 为EventTrigger添加事件
