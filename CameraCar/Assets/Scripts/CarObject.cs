@@ -272,21 +272,45 @@ public class CarObject : MonoBehaviour
         }
     }
 
+    // 应用后台切换事件
+    private void OnApplicationPause(bool pauseStatus)
+    {
+        if (pauseStatus)
+        {
+            // 后台时断开连接
+            DisconnectCar("Disconnect network by application pause");
+        }
+        else
+        {
+            // 切换到前台时，重新连接
+            StartConnect(ipText.text);
+        }
+    }
+
     // Wifi按钮事件
     public void OnWifiClick()
     {
+        // 网络连接或断开连接进行切换
         if (udpClient == null)
         {
             StartConnect(ipText.text);
         }
         else
         {
+            DisconnectCar("Disconnect network by hand");
+        }
+    }
+
+    private void DisconnectCar(string logStr)
+    {
+        if (udpClient != null)
+        {
             // 先发送Logout，再关闭socket
             SendCmdData("Logout");
             udpClient.Close();
             udpClient = null;
             wifiImg.sprite = wifiOff;
-            Debug.Log($"Disconnect network by hand");
+            Debug.Log(logStr);
         }
     }
 
