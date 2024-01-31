@@ -1,0 +1,6 @@
+{
+    "AutomatedSetup": true,
+    "PhotoLibraryUsageDescription": "需要访问相册来拍照",
+    "PhotoLibraryAdditionsUsageDescription": "访问相册来保存照片",
+    "DontAskLimitedPhotosPermissionAutomaticallyOnIos14": true
+}

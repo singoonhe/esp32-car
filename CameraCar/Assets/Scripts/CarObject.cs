@@ -29,6 +29,8 @@ public class CarObject : MonoBehaviour
 
     private byte[]      cameraBytes = null; // Camera数据缓存，在主线程中执行
     private bool        isWifiLogin = false;// 网络连接上的状态
+    private bool        takePhotoOnce = false;  // 是否拍照
+    private float       noticeUpdateTime = 0;   // 提示文本更新时间
     // 绑定结点
     public InputField   ipInput;
     public Text         ipText;     // ip地址显示栏
@@ -39,6 +41,8 @@ public class CarObject : MonoBehaviour
     public Image        speedImg;   // 右侧速度拖动的图
     public Image        speedBgImg; // 右侧速度的背景图
     public RawImage     frameImg;   // 摄像机显示图
+    public GameObject   photoObj;   // 拍照按钮对象
+    public Text         noticeText; // 提示文本
     // 按钮状态图
     public Sprite       wifiOff;    // wifi已连接状态图
     public Sprite       wifiOn;     // wifi未连接状态图
@@ -78,6 +82,8 @@ public class CarObject : MonoBehaviour
         }
         // 限制帧率
         Application.targetFrameRate = 30;
+        // 初始不可用拍照功能
+        SetCameraEnabled(false);
     }
 
     // 为EventTrigger添加事件
@@ -101,15 +107,23 @@ public class CarObject : MonoBehaviour
             {
                 if (heartCount > 20)
                 {
-                    udpClient.Close();
-                    udpClient = null;
-                    wifiImg.sprite = wifiOff;
-                    Debug.Log($"Disconnect network because of time out");
+                    // 关闭网络连接，并不发送Logout
+                    DisconnectCar("Disconnect network because of time out", false);
                 }
                 // 发送移动事件，同时作为心跳使用
                 SendCmdData("Move", sendDirValue.ToString() + "|" + sendSpeedValue.ToString());
             }
+            // 检查提示文本是否需要超时关闭
+            if (noticeText.gameObject.activeSelf && (Time.realtimeSinceStartup - noticeUpdateTime) > 5)
+                noticeText.gameObject.SetActive(false);
         }
+    }
+
+    // 设置Camera是否可用
+    private void SetCameraEnabled(bool enabled)
+    {
+        frameImg.gameObject.SetActive(enabled);
+        photoObj.gameObject.SetActive(enabled);
     }
 
     // 开始连接网络
@@ -117,7 +131,7 @@ public class CarObject : MonoBehaviour
     {
         if (ipStr.Length < 8)
             return;
-        Debug.Log($"Start connect {ipStr}");
+        ShowNoticeText($"Start connect {ipStr}");
 
         ipText.text = ipStr;
         wifiImg.sprite = wifiOff;
@@ -160,7 +174,10 @@ public class CarObject : MonoBehaviour
             // 登陆成功数据包
             // 标记状态，仅主线程可操作Image
             isWifiLogin = true;
-            Debug.Log($"Connect network success");
+            var esp_id = cmdDic["Value"] as string;
+            // 判断拍照功能是否可用
+            SetCameraEnabled(esp_id.StartsWith("esp"));
+            ShowNoticeText($"Connect network {esp_id} success");
         }
         //else if (typeCmd == "Heart")
         //{
@@ -239,6 +256,25 @@ public class CarObject : MonoBehaviour
                 // 重置显示大小
                 (frameImg.transform as RectTransform).sizeDelta = new Vector2(texture.width * Screen.height / texture.height, Screen.height);
             }
+            // 将图片保存下载
+            if (takePhotoOnce)
+            {
+                var permissionRet = NativeGallery.CheckPermission(NativeGallery.PermissionType.Write, NativeGallery.MediaType.Image);
+                if (permissionRet == NativeGallery.Permission.Denied)
+                    ShowNoticeText("No save photo permission");
+                else if (permissionRet == NativeGallery.Permission.Granted)
+                    NativeGallery.RequestPermissionAsync(NativeGallery.PermissionType.Write, NativeGallery.MediaType.Image);
+                else
+                {
+                    // 以当前时间作用文件名
+                    var photoName = "Car_" + DateTime.Now.ToString("HH_mm_ss_fff");
+                    NativeGallery.SaveImageToGallery(cameraBytes, "Camera-Car", photoName, (bool success, string path) =>
+                    {
+                        ShowNoticeText($"Save photo to {photoName}");
+                    });
+                }
+                takePhotoOnce = false;
+            }
             // 将camera数据置空
             cameraBytes = null;
         }
@@ -278,7 +314,7 @@ public class CarObject : MonoBehaviour
         if (pauseStatus)
         {
             // 后台时断开连接
-            DisconnectCar("Disconnect network by application pause");
+            DisconnectCar("Disconnect network by application pause", true);
         }
         else
         {
@@ -297,21 +333,42 @@ public class CarObject : MonoBehaviour
         }
         else
         {
-            DisconnectCar("Disconnect network by hand");
+            DisconnectCar("Disconnect network by hand", true);
         }
     }
 
-    private void DisconnectCar(string logStr)
+    // 拍照按钮事件
+    public void OnTakePhoto()
+    {
+        // 标记拍照一次，具体保存在Update中执行
+        takePhotoOnce = true;
+    }
+
+    // 主动断开网络连接
+    private void DisconnectCar(string logStr, bool logout)
     {
         if (udpClient != null)
         {
             // 先发送Logout，再关闭socket
-            SendCmdData("Logout");
+            if (logout)
+                SendCmdData("Logout");
             udpClient.Close();
             udpClient = null;
             wifiImg.sprite = wifiOff;
-            Debug.Log(logStr);
+            // 不可用拍照功能
+            SetCameraEnabled(false);
+            ShowNoticeText(logStr);
         }
+    }
+
+    // 显示日志
+    private void ShowNoticeText(string notice)
+    {
+        // 更新日志显示时间
+        noticeUpdateTime = Time.realtimeSinceStartup;
+        noticeText.gameObject.SetActive(true);
+        noticeText.text = notice;
+        Debug.Log(notice);
     }
 
     // IP地址点击事件
