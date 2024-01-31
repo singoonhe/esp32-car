@@ -1,6 +1,6 @@
 # ESP32-C3独立控制小车
 from wifi import wifi_network
-from wheel import wheel_timer
+from wheel_pwm import wheel_pwm
 
 # 网络wifi对象
 network_wifi = None
@@ -25,9 +25,9 @@ def sys_interrupt_call():
 def run_main():
     global car_wheel
     global network_wifi
-    # 电机控制器, 指定SCL和SDL引脚
-    # ESP32-C3不支持虚拟定时器，不能使用默认值-1。必须是0|2|4等偶数
-    car_wheel = wheel_timer(5, 4, 0)
+    # 电机控制器, 指定控制电机的8个引脚
+    # 先左侧2电机，再右侧2电机
+    car_wheel = wheel_pwm([2,3, 10,6, 7,11, 5,4])
     # 使用IO10是否接低电平来控制使用AP模式
     wifi_info = {'ap_pin':10}
     # 配置AP时的网络信息

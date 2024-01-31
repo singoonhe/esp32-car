@@ -4,7 +4,7 @@ import gc
 import camera
 import _thread
 from wifi import wifi_network
-from wheel import wheel_timer
+from wheel_io import wheel_timer
 # import cam_config as cc
 
 # 网络wifi对象
