@@ -3,32 +3,26 @@ import time
 import gc
 import camera
 import _thread
-# import cam_config as cc
-from machine import Timer,Pin
 from wifi import wifi_network
-from data import network_data
 from wheel import wheel_timer
+# import cam_config as cc
 
-# 指定的数据接收者
-command_target = None
 # 网络wifi对象
 network_wifi = None
-# 网络检查，未收到数据的计数
-network_check = 0
 # 车轮控制对象
 car_wheel = None
 
 # 摄像头截图循环
 def camera_loop():
     while True:
-#         time.sleep(5)
-        if command_target != None:
-            img=camera.capture()
-#             print("capture:" + str(len(img)))
+        # time.sleep(5)
+        if network_wifi.is_target_enabled():
+            img = camera.capture()
+            # print("capture:" + str(len(img)))
             # 分段发送数据
             send_list = network_data.pack(False, img)
             for value in send_list:
-                network_wifi.send_data(value, command_target)
+                network_wifi.send_data(value)
         else:
             # 连接未准备好时，减缓更新
             time.sleep_ms(100)
@@ -37,12 +31,12 @@ def camera_loop():
 def init_camera():
     # https://github.com/singoonhe/esp32-cam-micropython-2022
     # set camera configuration
-#     cc.configure(camera, cc.ai_thinker)
-#     camera.conf(cc.PIXFORMAT,cc.PIXFORMAT_JPEG) # both pixformat and 
-#     camera.conf(cc.FRAMESIZE,cc.FRAMESIZE_QQVGA) # framesize MUST before camera.init
-#     camera.init()
-#     # other setting after init
-#     camera.quality(12)
+    # cc.configure(camera, cc.ai_thinker)
+    # camera.conf(cc.PIXFORMAT,cc.PIXFORMAT_JPEG) # both pixformat and 
+    # camera.conf(cc.FRAMESIZE,cc.FRAMESIZE_QQVGA) # framesize MUST before camera.init
+    # camera.init()
+    # # other setting after init
+    # camera.quality(12)
     
     # https://github.com/singoonhe/micropython-camera-driver
     # ESP32-CAM (default configuration) - https://bit.ly/2Ndn8tN
@@ -57,72 +51,44 @@ def init_camera():
     # Check this link for more information: https://bit.ly/2YOzizz
     _thread.start_new_thread(camera_loop, ())
 
-# 接收到命令数据
-def recv_command_data(data, addr):
-    global command_target
-    global network_check
-    command_data = network_data.unpack(data)
-    if command_data:
-        network_check = 0
-        if command_data['Type'] == 'Login':
-            command_target = addr
-            network_wifi.set_enable(True)
-            print('set command target %s' % addr[0])
-            send_command_data('Login')
-        elif command_data['Type'] == 'Logout':
-            network_wifi.set_enable(False)
-            command_target = None
-            print('clear command target by logout')
-        elif command_data['Type'] == 'Move':
-            # 接收到移动事件
-            move_info = command_data['Value'].split('|')
-            if len(move_info) >= 2:
-                # 移动方向和速度
-                car_wheel.set_speed_dir(int(move_info[0]), int(move_info[1]))
+# 接收到自定义命令数据
+def ex_command_data(cmd_type, cmd_value):
+    if cmd_type == 'Move':
+        # 接收到移动事件
+        move_info = cmd_value.split('|')
+        if len(move_info) >= 2:
+            # 移动方向和速度
+            car_wheel.set_speed_dir(int(move_info[0]), int(move_info[1]))
     # 释放内存
     gc.collect()
-            
-# 发送命令数据
-def send_command_data(cmd_type, cmd_value=None):
-    if command_target == None:
-        return
-    pack_obj = {'Type':cmd_type}
-    if cmd_value:
-        pack_obj['Value'] = cmd_value
-    send_value = network_data.pack(True, pack_obj)
-    network_wifi.send_data(send_value, command_target)
-    
-# wifi网络检查方法
-def check_wifi_target(t):
-    global command_target
-    global network_check
-    network_check += 1
-    if command_target != None and network_check > 4:
-        network_wifi.set_enable(False)
-        command_target = None
-        print('clear command target because of time out')
         
 # 系统中断回调方法():
 def sys_interrupt_call():
-    print('system interrupt')
+    # 车轮停止转动
+    car_wheel.set_speed_dir(-1, 6)
     # 释放camera
     camera.deinit()
 
-if __name__ == '__main__':
+# 入口方法
+def run_main():
+    global car_wheel
+    global network_wifi
     # 初始化摄像机
     init_camera()
-    # 电机控制器, 指定SCL和SDL引脚
-    car_wheel = wheel_timer(12, 13)
-    # 开启网络超时检查
-    wifi_timer = Timer(-1)
-    wifi_timer.init(period=500, mode=Timer.PERIODIC, callback=check_wifi_target)
-    # 初始化网络, 使用IO2是否接低电平来控制使用AP模式
-    wifi_info = {'ap_name' : 'CAR_HGH', 'ap_psd' : 'HF123456', 'ap_pin':2}
-    # 默认使用家庭网络
-#     wifi_info['ssid'] = 'wzry_4_4'
-#     wifi_info['psd'] = 'xingqiwanWifi'
+    # 电机控制器, 指定SCL和SDL引脚, timer_id使用默认值-1
+    car_wheel = wheel_timer(12, 13, -1)
+    # 使用IO2是否接低电平来控制使用AP模式
+    wifi_info = {'ap_pin':2}
+    # 配置AP时的网络信息
+    wifi_info['ap_name'] = 'CAR_HGH'
+    wifi_info['ap_psd'] = 'HF123456'
+    # 配置局域网下的网络信息
     wifi_info['ssid'] = 'HUAWEI-HF'
     wifi_info['psd'] = 'HF123456'
+    # 初始化网络
     network_wifi = wifi_network(wifi_info)
-    network_wifi.start_socket(recv_command_data, sys_interrupt_call)
+    # 指定timer_id，并开始循环接收网络数据
+    network_wifi.start_socket(-1, ex_command_data, sys_interrupt_call)
 
+if __name__ == '__main__':
+    run_main()
