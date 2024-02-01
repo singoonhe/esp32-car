@@ -4,6 +4,7 @@ import gc
 import camera
 import _thread
 from wifi import wifi_network
+from data import network_data
 from wheel_io import wheel_timer
 # import cam_config as cc
 
@@ -73,8 +74,6 @@ def sys_interrupt_call():
 def run_main():
     global car_wheel
     global network_wifi
-    # 初始化摄像机
-    init_camera()
     # 电机控制器, 指定SCL和SDL引脚, timer_id使用默认值-1
     car_wheel = wheel_timer(12, 13, -1)
     # 使用IO2是否接低电平来控制使用AP模式
@@ -87,6 +86,8 @@ def run_main():
     wifi_info['psd'] = 'HF123456'
     # 初始化网络
     network_wifi = wifi_network(wifi_info)
+    # 初始化摄像机
+    init_camera()
     # 指定timer_id，并开始循环接收网络数据
     network_wifi.start_socket(-1, ex_command_data, sys_interrupt_call)
 

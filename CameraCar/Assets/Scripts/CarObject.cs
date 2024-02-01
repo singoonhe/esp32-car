@@ -175,8 +175,8 @@ public class CarObject : MonoBehaviour
             // 标记状态，仅主线程可操作Image
             isWifiLogin = true;
             var esp_id = cmdDic["Value"] as string;
-            // 判断拍照功能是否可用
-            SetCameraEnabled(esp_id.StartsWith("esp"));
+            // 判断拍照功能是否可用, ESP32-C3以T2开头
+            SetCameraEnabled(!esp_id.StartsWith("T2"));
             ShowNoticeText($"Connect network {esp_id} success");
         }
         //else if (typeCmd == "Heart")

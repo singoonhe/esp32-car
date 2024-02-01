@@ -3,6 +3,7 @@ import os
 import time
 import _thread
 import network
+import machine
 from socket import *
 from machine import Timer,Pin
 from data import network_data
@@ -19,7 +20,7 @@ class wifi_network:
         # 指定的数据接收者
         self.command_target = None
         # 是否需要发送心跳数据
-        self.cmd_heart = sta_info['cmd_heart'] != None
+        self.cmd_heart = sta_info.get('cmd_heart') == True
         # 使用指定引脚的电平来判断网络模式
         p2 = Pin(sta_info['ap_pin'], Pin.IN, Pin.PULL_UP)
         if p2.value() == 0:
@@ -101,22 +102,20 @@ class wifi_network:
         
     # 发送命令数据
     def send_command_data(self, cmd_type, cmd_value=None):
-        if self.command_target == None or self.udp_socket == None:
-            return
-        # 发送json类型类型
-        pack_obj = {'Type':cmd_type}
-        if cmd_value != None:
-            pack_obj['Value'] = cmd_value
-        send_value = network_data.pack(True, pack_obj)
-        self.udp_socket.sendto(send_value, self.command_target)
-        # print('send message length: %d' % len(data))
+        if self.is_target_enabled():
+            # 发送json类型类型
+            pack_obj = {'Type':cmd_type}
+            if cmd_value != None:
+                pack_obj['Value'] = cmd_value
+            send_value = network_data.pack(True, pack_obj)
+            self.udp_socket.sendto(send_value, self.command_target)
+            # print('send message length: %d' % len(send_value))
 
     # 发送指定的数据
     def send_data(self, data):
         if self.is_target_enabled():
-            return
-        self.udp_socket.sendto(data, self.command_target)
-        # print('send message length: %d' % len(data))
+            self.udp_socket.sendto(data, self.command_target)
+            # print('send message length: %d' % len(data))
 
     # 返回是否可以发送数据
     def is_target_enabled(self):
