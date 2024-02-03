@@ -3,6 +3,7 @@ import time
 import gc
 import camera
 import _thread
+from machine import Pin
 from wifi import wifi_network
 from data import network_data
 from wheel_io import wheel_timer
@@ -75,7 +76,10 @@ def run_main():
     global car_wheel
     global network_wifi
     # 电机控制器, 指定SCL和SDL引脚, timer_id使用默认值-1
-    car_wheel = wheel_timer(12, 13, -1)
+    car_wheel = wheel_timer(15, 14, -1)
+    # 添加一个引脚显示i2c是否正常初始化
+    p_led = Pin(13, Pin.OUT)
+    p_led.value(car_wheel.is_ready() and 1 or 0)
     # 使用IO2是否接低电平来控制使用AP模式
     wifi_info = {'ap_pin':2}
     # 配置AP时的网络信息

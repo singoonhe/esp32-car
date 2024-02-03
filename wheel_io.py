@@ -21,13 +21,19 @@ class wheel_timer:
         # 车轮是否向前
         self.move_front = True
         # 开启车轮改变定时器
+        self.i2c_addr = None
         if len(i2c_devices) > 0:
             self.i2c_addr = i2c_devices[0]
+            print('use i2c addr ' + str(self.i2c_addr))
             wheel_timer = Timer(time_id)
             # 1ms定时器，方便模拟PWM
             wheel_timer.init(period=1, mode=Timer.PERIODIC, callback=self.wheel_timer_callback)
         else:
             print('cannot find i2c device')
+            
+    # 控制器是否准备好
+    def is_ready(self):
+        return self.i2c_addr != None
             
     # 重置车轮的速度及方向
     def set_speed_dir(self, move_dir, speed):
