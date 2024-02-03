@@ -18,7 +18,7 @@ public class CarObject : MonoBehaviour
     private UdpClient   udpClient = null;
     private int         dstPort = 7890;
     private int         heartCount = 0;//心跳
-    private Coroutine   timerCoroutine;// 网络连接检查器
+    private Coroutine   timerCoroutine = null;// 网络连接检查器
     
     private Vector2     dirOrginPos;        // 方向键的原始位置
     private const float dirMoveDis = 75;    // 方向键移动的最大距离
@@ -27,8 +27,7 @@ public class CarObject : MonoBehaviour
     private int         sendDirValue = -1;  // 移动的方向值
     private int         sendSpeedValue = 6; // 移动的速度值
 
-    private byte[]      cameraBytes = null; // Camera数据缓存，在主线程中执行
-    private bool        isWifiLogin = false;// 网络连接上的状态
+    private byte[]      recvedBytes = null; // 网络数据缓存
     private bool        takePhotoOnce = false;  // 是否拍照
     private float       noticeUpdateTime = 0;   // 提示文本更新时间
     // 绑定结点
@@ -69,6 +68,8 @@ public class CarObject : MonoBehaviour
         // 启动连接判断定时器
         timerCoroutine = StartCoroutine(StartNetCheckTimer(0.1f));
 
+        // 初始不可用拍照功能
+        SetCameraEnabled(false);
         // 读取历史连接地址
         configPath = Application.persistentDataPath + "/ip.txt";
         if (File.Exists(configPath))
@@ -82,8 +83,6 @@ public class CarObject : MonoBehaviour
         }
         // 限制帧率
         Application.targetFrameRate = 30;
-        // 初始不可用拍照功能
-        SetCameraEnabled(false);
     }
 
     // 为EventTrigger添加事件
@@ -122,6 +121,7 @@ public class CarObject : MonoBehaviour
     // 设置Camera是否可用
     private void SetCameraEnabled(bool enabled)
     {
+        Debug.Log($"set camera to {enabled}");
         frameImg.gameObject.SetActive(enabled);
         photoObj.gameObject.SetActive(enabled);
     }
@@ -172,8 +172,8 @@ public class CarObject : MonoBehaviour
         if (typeCmd == "Login")
         {
             // 登陆成功数据包
-            // 标记状态，仅主线程可操作Image
-            isWifiLogin = true;
+            // 设置wifi显示正常
+            wifiImg.sprite = wifiOn;
             var esp_id = cmdDic["Value"] as string;
             // 判断拍照功能是否可用, ESP32-C3以T2开头
             SetCameraEnabled(!esp_id.StartsWith("T2"));
@@ -195,59 +195,89 @@ public class CarObject : MonoBehaviour
         UdpClient socket = result.AsyncState as UdpClient;
         IPEndPoint source = new IPEndPoint(0, 0);
         byte[] message = socket.EndReceive(result, ref source);
+        if (message != null && message.Length > 1)
+        {
+            lock (recvedBytes)
+            {
+                recvedBytes = message;
+            }
+        }
         // 接收到数据，计数重置
         heartCount = 0;
-        if (message[0] == '0')
-        {
-            // 第xCamera帧数据
-            int frameIndex = message[1];
-            if (!receivedSlices.ContainsKey(frameIndex))
-            {
-                receivedFrameQueue.Enqueue(frameIndex);
-                receivedSlices.Add(frameIndex, new Dictionary<int, byte[]>());
-                // 判断缓存的大小, 超出大小则清理
-                if (receivedFrameQueue.Count > 4)
-                {
-                    int removeFrameIndex = receivedFrameQueue.Dequeue();
-                    if (receivedSlices.ContainsKey(removeFrameIndex))
-                        receivedSlices.Remove(removeFrameIndex);
-                }
-            }
-            // 此帧总共x片
-            int stepCount = (message[2]) << 8 | message[3];
-            // 此帧当前x片
-            int stepIndex = (message[4]) << 8 | message[5];
-            byte[] sliceData = message.Skip(6).ToArray();
-            receivedSlices[frameIndex][stepIndex] = sliceData;
-            if (receivedSlices[frameIndex].Count >= stepCount)
-            {
-                // 按顺序重组数据并保存，仅主线程中才能重置Texture
-                cameraBytes = Enumerable.Range(0, receivedSlices[frameIndex].Count)
-                    .SelectMany(i => receivedSlices[frameIndex][i])
-                    .ToArray();
-                // Debug.Log($"OnReceived {frameIndex}, {stepCount}, {stepIndex}, {cameraBytes.Length}");
-            }
-        }
-        else
-        {
-            // 控制命令数据
-            string commandData = Encoding.UTF8.GetString(message.Skip(1).ToArray());
-            // Debug.Log($"OnReceived cammand {commandData}");
-            var retCmd = Json.Decode(commandData) as Dictionary<string, object>;
-            if (retCmd != null)
-            {
-                DealRecvCmd(retCmd);
-            }
-        }
+        // 继续接收数据
         socket.BeginReceive(new AsyncCallback(OnReceived), socket);
     }
 
     private void Update()
     {
+        if (recvedBytes != null)
+        {
+            lock(recvedBytes)
+            {
+                if (recvedBytes[0] == '0')
+                {
+                    // 第xCamera帧数据
+                    int frameIndex = recvedBytes[1];
+                    if (!receivedSlices.ContainsKey(frameIndex))
+                    {
+                        receivedFrameQueue.Enqueue(frameIndex);
+                        receivedSlices.Add(frameIndex, new Dictionary<int, byte[]>());
+                        // 判断缓存的大小, 超出大小则清理
+                        if (receivedFrameQueue.Count > 4)
+                        {
+                            int removeFrameIndex = receivedFrameQueue.Dequeue();
+                            if (receivedSlices.ContainsKey(removeFrameIndex))
+                                receivedSlices.Remove(removeFrameIndex);
+                        }
+                    }
+                    // 此帧总共x片
+                    int stepCount = (recvedBytes[2]) << 8 | recvedBytes[3];
+                    // 此帧当前x片
+                    int stepIndex = (recvedBytes[4]) << 8 | recvedBytes[5];
+                    byte[] sliceData = recvedBytes.Skip(6).ToArray();
+                    receivedSlices[frameIndex][stepIndex] = sliceData;
+                    if (receivedSlices[frameIndex].Count >= stepCount)
+                    {
+                        // 按顺序重组数据并保存，仅主线程中才能重置Texture
+                        var cameraBytes = Enumerable.Range(0, receivedSlices[frameIndex].Count)
+                            .SelectMany(i => receivedSlices[frameIndex][i])
+                            .ToArray();
+                        Debug.Log($"OnReceived {frameIndex}, {stepCount}, {stepIndex}, {cameraBytes.Length}");
+                    }
+                }
+                else
+                {
+                    // 控制命令数据
+                    string commandData = Encoding.UTF8.GetString(recvedBytes.Skip(1).ToArray());
+                    // Debug.Log($"OnReceived cammand {commandData}");
+                    var retCmd = Json.Decode(commandData) as Dictionary<string, object>;
+                    if (retCmd != null)
+                    {
+                        DealRecvCmd(retCmd);
+                    }
+                }
+                // 数据处理后，置空
+                recvedBytes = null;
+            }
+        }
+        
+        // 退出应用
+        if (Application.platform == RuntimePlatform.Android)
+        {
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                Application.Quit();
+            }
+        }
+    }
+
+    // 显示摄像头数据
+    private void SetCameraBytes(byte[] cameraBytes)
+    {
         // Camera数据主线程中重置
         if (cameraBytes != null)
         {
-            Texture2D texture = new Texture2D(1024, 1024);
+            Texture2D texture = new Texture2D(2, 2);
             if (texture.LoadImage(cameraBytes))
             {
                 // Debug.Log($"texture1 {texture}, {texture.width}, {texture.height}");
@@ -275,22 +305,6 @@ public class CarObject : MonoBehaviour
                 }
                 takePhotoOnce = false;
             }
-            // 将camera数据置空
-            cameraBytes = null;
-        }
-        // wifi状态主线程中重置
-        if (isWifiLogin)
-        {
-            wifiImg.sprite = wifiOn;
-            isWifiLogin = false;
-        }
-        // 退出应用
-        if (Application.platform == RuntimePlatform.Android)
-        {
-            if (Input.GetKeyDown(KeyCode.Escape))
-            {
-                Application.Quit();
-            }
         }
     }
 
@@ -316,7 +330,7 @@ public class CarObject : MonoBehaviour
             // 后台时断开连接
             DisconnectCar("Disconnect network by application pause", true);
         }
-        else
+        else if (timerCoroutine != null)
         {
             // 切换到前台时，重新连接
             StartConnect(ipText.text);
