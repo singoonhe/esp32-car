@@ -28,6 +28,7 @@ public class CarObject : MonoBehaviour
     private int         sendSpeedValue = 6; // 移动的速度值
 
     private byte[]      recvedBytes = null; // 网络数据缓存
+    private object      recvLockObj = new object();
     private bool        takePhotoOnce = false;  // 是否拍照
     private float       noticeUpdateTime = 0;   // 提示文本更新时间
     // 绑定结点
@@ -195,9 +196,10 @@ public class CarObject : MonoBehaviour
         UdpClient socket = result.AsyncState as UdpClient;
         IPEndPoint source = new IPEndPoint(0, 0);
         byte[] message = socket.EndReceive(result, ref source);
-        if (message != null && message.Length > 1)
+        lock (recvLockObj)
         {
-            lock (recvedBytes)
+            // 判断一下recvedBytes，保证Login能被执行
+            if (recvedBytes == null && message != null && message.Length > 1)
             {
                 recvedBytes = message;
             }
@@ -212,7 +214,7 @@ public class CarObject : MonoBehaviour
     {
         if (recvedBytes != null)
         {
-            lock(recvedBytes)
+            lock(recvLockObj)
             {
                 if (recvedBytes[0] == '0')
                 {
@@ -242,7 +244,8 @@ public class CarObject : MonoBehaviour
                         var cameraBytes = Enumerable.Range(0, receivedSlices[frameIndex].Count)
                             .SelectMany(i => receivedSlices[frameIndex][i])
                             .ToArray();
-                        Debug.Log($"OnReceived {frameIndex}, {stepCount}, {stepIndex}, {cameraBytes.Length}");
+                        SetCameraBytes(cameraBytes);
+                        // Debug.Log($"OnReceived {frameIndex}, {stepCount}, {stepIndex}, {cameraBytes.Length}");
                     }
                 }
                 else
@@ -277,7 +280,7 @@ public class CarObject : MonoBehaviour
         // Camera数据主线程中重置
         if (cameraBytes != null)
         {
-            Texture2D texture = new Texture2D(2, 2);
+            Texture2D texture = new Texture2D(32, 32);
             if (texture.LoadImage(cameraBytes))
             {
                 // Debug.Log($"texture1 {texture}, {texture.width}, {texture.height}");
