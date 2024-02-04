@@ -1,14 +1,15 @@
 #车轮控制类, pwm方式控制
-from machine import Pin
+from machine import Pin, PWM
 
 class wheel_pwm:
     # 初始化方法
-    # pins：需要的8个引脚列表，前4个代表左边电机，后4个代表右边电机
+    # pins：需要的4个引脚列表，前2个代表左边电机，后2个代表右边电机
     def __init__(self, pins):
         self.pwm_pins = []
         # 初始化PWM引脚
         for x in range(len(pins)):
-            self.pwm_pins[x] = machine.PWM(Pin(pins[x], Pin.OUT), freq=1000)
+            pwm_pin = PWM(Pin(pins[x], Pin.OUT), freq=1000)
+            self.pwm_pins.append(pwm_pin)
             
     # 重置车轮的速度及方向
     def set_speed_dir(self, move_dir, speed):
@@ -39,12 +40,10 @@ class wheel_pwm:
             pwm_left = int(max(0, min((left_angle / 90) * speed, speed)))
         # 设置左侧电机占空比
         left_duty = int(pwm_left * 102.3)
-        for x in range(2):
-            self.pwm_pins[x * 2].duty(move_front and left_duty or 0)
-            self.pwm_pins[x * 2 + 1].duty(move_front and 0 or left_duty)
+        self.pwm_pins[0].duty(move_front and left_duty or 0)
+        self.pwm_pins[1].duty(move_front and 0 or left_duty)
         # 设置右侧电机占空比
         right_duty = int(pwm_right * 102.3)
-        for x in range(2):
-            self.pwm_pins[x * 2].duty(move_front and right_duty or 0)
-            self.pwm_pins[x * 2 + 1].duty(move_front and 0 or right_duty)
+        self.pwm_pins[2].duty(move_front and right_duty or 0)
+        self.pwm_pins[3].duty(move_front and 0 or right_duty)
     
