@@ -1,7 +1,7 @@
 # ESP32-C3独立控制小车
+from led import blink_led
 from wifi import wifi_network
 from wheel_pwm import wheel_pwm
-# from wheel_io import wheel_timer
 
 # 网络wifi对象
 network_wifi = None
@@ -26,7 +26,7 @@ def wifi_target_link_call(linked):
         car_led.set_light(True)
     else:
         # 断开连接或等待连接，闪烁效果
-        car_led.set_blink(1)    
+        car_led.set_blink(1)
 
 # 系统中断回调方法():
 def sys_interrupt_call():
@@ -41,14 +41,12 @@ def run_main():
     global network_wifi
     global car_led
     # 添加led指示引脚, 并传入timer_id
-    car_led = blink_led(11, -1)
+    car_led = blink_led(11, 0)
     # 初始化过程中急闪
     car_led.set_blink(0.5)
-    # 电机控制器, 指定控制电机的4个引脚
-    # ESP32-C3仅支持6个PWM，此处仅使用4个
-    # 先左侧2电机，再右侧2电机
-    car_wheel = wheel_pwm([2,3, 10,6])
-#     car_wheel = wheel_timer(5, 4, 0)
+    # 电机控制器, 指定控制电机的4个引脚。先左侧2电机，再右侧2电机
+    # L298N使用2个PWM引脚来控制速度
+    car_wheel = wheel_pwm([2,3, 5,4], [10,8])
     # 使用指定IO是否接低电平来控制使用AP模式
     wifi_info = {'ap_pin':13}
     # 配置AP时的网络信息

@@ -14,8 +14,8 @@ class blink_led:
     
     # 设置常亮或常灭
     def set_light(self, light):
-        self.led_pin.value(light and 1 or 0)
         self.blink_light = light
+        self.led_pin.value(int(self.blink_light))
         if self.led_timer != None:
             self.led_timer.deinit()
             self.led_timer = None
@@ -34,5 +34,5 @@ class blink_led:
     # 闪烁方法
     def led_blink(self, t):
         self.blink_light = not self.blink_light
-        self.led_pin.value(self.blink_light and 1 or 0)
+        self.led_pin.value(int(self.blink_light))
         
