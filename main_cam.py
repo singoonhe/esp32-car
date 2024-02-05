@@ -7,12 +7,15 @@ from machine import Pin
 from wifi import wifi_network
 from data import network_data
 from wheel_io import wheel_timer
+from led import blink_led
 # import cam_config as cc
 
 # 网络wifi对象
 network_wifi = None
 # 车轮控制对象
 car_wheel = None
+# led提示灯
+car_led = None
 
 # 摄像头截图循环
 def camera_loop():
@@ -63,37 +66,52 @@ def ex_command_data(cmd_type, cmd_value):
             car_wheel.set_speed_dir(int(move_info[0]), int(move_info[1]))
     # 释放内存
     gc.collect()
+    
+# 网络target变化回调
+def wifi_target_link_call(linked):
+    if linked:
+        # 连接成功常亮
+        car_led.set_light(True)
+    else:
+        # 断开连接或等待连接，闪烁效果
+        car_led.set_blink(1)
         
 # 系统中断回调方法():
 def sys_interrupt_call():
-    # 车轮停止转动
-    car_wheel.set_speed_dir(-1, 6)
     # 释放camera
     camera.deinit()
+    # 车轮停止转动
+    car_wheel.set_speed_dir(-1, 6)
+    # 连接成功常灭
+    car_led.set_light(False)
 
 # 入口方法
 def run_main():
     global car_wheel
     global network_wifi
-    # 电机控制器, 指定SCL和SDL引脚, timer_id使用默认值-1
-    car_wheel = wheel_timer(15, 14, -1)
-    # 添加一个引脚显示i2c是否正常初始化
-    p_led = Pin(13, Pin.OUT)
-    p_led.value(car_wheel.is_ready() and 1 or 0)
+    global car_led
+    # 添加led指示引脚, 并传入timer_id
+    car_led = blink_led(13, -1)
+    # 初始化过程中急闪
+    car_led.set_blink(0.5)
     # 使用IO2是否接低电平来控制使用AP模式
     wifi_info = {'ap_pin':2}
     # 配置AP时的网络信息
     wifi_info['ap_name'] = 'CAR_HGH'
     wifi_info['ap_psd'] = 'HF123456'
     # 配置局域网下的网络信息
-    wifi_info['ssid'] = 'HUAWEI-HF'
-    wifi_info['psd'] = 'HF123456'
+#     wifi_info['ssid'] = 'HUAWEI-HF'
+#     wifi_info['psd'] = 'HF123456'
+    wifi_info['ssid'] = 'wzry_4_4'
+    wifi_info['psd'] = 'xingqiwanWifi'
     # 初始化网络
     network_wifi = wifi_network(wifi_info)
     # 初始化摄像机
     init_camera()
+    # 电机控制器, 指定SCL和SDL引脚, timer_id使用默认值-1
+    car_wheel = wheel_timer(15, 14, -1)
     # 指定timer_id，并开始循环接收网络数据
-    network_wifi.start_socket(-1, ex_command_data, sys_interrupt_call)
+    network_wifi.start_socket(-1, wifi_target_link_call, ex_command_data, sys_interrupt_call)
 
 if __name__ == '__main__':
     run_main()

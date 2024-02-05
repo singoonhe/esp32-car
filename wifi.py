@@ -19,6 +19,8 @@ class wifi_network:
         self.network_check = 0
         # 指定的数据接收者
         self.command_target = None
+        # Target变化回调方法
+        self.target_link_call = None
         # 是否需要发送心跳数据
         self.cmd_heart = sta_info.get('cmd_heart') == True
         # 使用指定引脚的电平来判断网络模式
@@ -56,12 +58,15 @@ class wifi_network:
     # 开始接受网络连接
     # out_timer_id:超时检测的timer_id, ESP32和ESP32-C3存在区别
     # ex_cmd_call：接收控制事件的回调
-    def start_socket(self, out_timer_id, ex_cmd_call, interrupt_call):
+    # target_link_call:连接的target状态变化回调
+    # interrupt_call:调试期主动中断回调
+    def start_socket(self, out_timer_id, target_link_call, ex_cmd_call, interrupt_call):
         if len(self.ip) < 8:
             print('network init failed')
             return
         
         print("current ip : " + self.ip)
+        self.target_link_call = target_link_call
         # 开启非阻塞UDP
         self.udp_socket = socket(AF_INET, SOCK_DGRAM)
         self.udp_socket.bind((self.ip, 7890))
@@ -70,19 +75,20 @@ class wifi_network:
         wifi_timer = Timer(out_timer_id)
         wifi_timer.init(period=500, mode=Timer.PERIODIC, callback=self.check_wifi_target)
         # 循环接收数据
-        while True:
-            try:
-                data, addr=self.udp_socket.recvfrom(1024)
-                # print('received:',data,'from',addr)
-                self.recv_data(data, addr, ex_cmd_call)
-            except OSError:
-                # 没有数据包可用了
-                pass
-            except KeyboardInterrupt:
-                print('system interrupt')
-                interrupt_call()
-                break
-
+        try:
+            # 初始调用target未连接
+            self.target_link_call(False)
+            while True:
+                try:
+                    data, addr=self.udp_socket.recvfrom(1024)
+                    # print('received:',data,'from',addr)
+                    self.recv_data(data, addr, ex_cmd_call)
+                except OSError:
+                    # 没有数据包可用了
+                    pass
+        except KeyboardInterrupt:
+            print('system interrupt')
+            interrupt_call()
 
     # 接收到命令数据
     def recv_data(self, data, addr, ex_cmd_call):
@@ -92,9 +98,11 @@ class wifi_network:
             if command_data['Type'] == 'Login':
                 self.command_target = addr
                 self.send_command_data('Login', machine.unique_id())
+                self.target_link_call(True)
                 print('set command target %s' % addr[0])
             elif command_data['Type'] == 'Logout':
                 self.command_target = None
+                self.target_link_call(False)
                 print('clear command target by logout')
             else:
                 # 调用外部处理方法
@@ -129,6 +137,7 @@ class wifi_network:
         self.network_check += 1
         if self.command_target != None and self.network_check > 4:
             self.command_target = None
+            self.target_link_call(False)
             print('clear command target because of time out')
     
     ###########################Config#############################

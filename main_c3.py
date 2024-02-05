@@ -7,6 +7,8 @@ from wheel_pwm import wheel_pwm
 network_wifi = None
 # 车轮控制对象
 car_wheel = None
+# led提示灯
+car_led = None
 
 # 接收到自定义命令数据
 def ex_command_data(cmd_type, cmd_value):
@@ -17,15 +19,31 @@ def ex_command_data(cmd_type, cmd_value):
             # 移动方向和速度
             car_wheel.set_speed_dir(int(move_info[0]), int(move_info[1]))
         
+# 网络target变化回调
+def wifi_target_link_call(linked):
+    if linked:
+        # 连接成功常亮
+        car_led.set_light(True)
+    else:
+        # 断开连接或等待连接，闪烁效果
+        car_led.set_blink(1)    
+
 # 系统中断回调方法():
 def sys_interrupt_call():
     # 车轮停止转动
     car_wheel.set_speed_dir(-1, 6)
+    # 连接成功常灭
+    car_led.set_light(False)
 
 # 入口方法
 def run_main():
     global car_wheel
     global network_wifi
+    global car_led
+    # 添加led指示引脚, 并传入timer_id
+    car_led = blink_led(11, -1)
+    # 初始化过程中急闪
+    car_led.set_blink(0.5)
     # 电机控制器, 指定控制电机的4个引脚
     # ESP32-C3仅支持6个PWM，此处仅使用4个
     # 先左侧2电机，再右侧2电机
@@ -44,7 +62,7 @@ def run_main():
     # 初始化网络
     network_wifi = wifi_network(wifi_info)
     # 指定timer_id，并开始循环接收网络数据
-    network_wifi.start_socket(2, ex_command_data, sys_interrupt_call)
+    network_wifi.start_socket(2, wifi_target_link_call, ex_command_data, sys_interrupt_call)
 
 if __name__ == '__main__':
     run_main()

@@ -24,7 +24,7 @@ class wheel_timer:
         self.i2c_addr = None
         if len(i2c_devices) > 0:
             self.i2c_addr = i2c_devices[0]
-            print('use i2c addr ' + str(self.i2c_addr))
+            print('use i2c addr ' + hex(self.i2c_addr))
             wheel_timer = Timer(time_id)
             # 1ms定时器，方便模拟PWM
             wheel_timer.init(period=1, mode=Timer.PERIODIC, callback=self.wheel_timer_callback)
