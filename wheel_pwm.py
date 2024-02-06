@@ -5,19 +5,21 @@ class wheel_pwm:
     # 初始化方法
     # pins：需要的4个引脚列表，前2个代表左边电机，后2个代表右边电机
     # pwms: 需要的2个PWM引脚列表，前1个代表左边电机，后1个代表右边电机
-    def __init__(self, pins, pwms):
+    # low_duty:最低的空占比
+    # up_duty:最高的空占比
+    def __init__(self, pins, pwms, low_duty, up_duty):
         self.nor_pins = []
         self.pwm_pins = []
         # 最低的占空比
-        self.low_duty = 423
+        self.low_duty = low_duty
         # 点空比的步进值
-        self.duty_step = 102.3 - self.low_duty * 0.1
+        self.duty_step = up_duty * 0.1 - self.low_duty * 0.1
         # 初始化控制引脚
         for pin in pins:
             self.nor_pins.append(Pin(pin, Pin.OUT))
         # 初始化PWM引脚
         for pin in pwms:
-            pwm_pin = PWM(Pin(pin, Pin.OUT), freq=100)
+            pwm_pin = PWM(Pin(pin, Pin.OUT), freq=50)
             self.pwm_pins.append(pwm_pin)
             
     # 重置车轮的速度及方向
