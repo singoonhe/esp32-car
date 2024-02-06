@@ -92,6 +92,7 @@ class wifi_network:
 
     # 接收到命令数据
     def recv_data(self, data, addr, ex_cmd_call):
+#         print('recv dat length: %d' % len(data))
         command_data = network_data.unpack(data)
         if command_data:
             self.network_check = 0
@@ -106,7 +107,7 @@ class wifi_network:
                 print('clear command target by logout')
             else:
                 # 调用外部处理方法
-                ex_cmd_call(command_data['Type'], command_data['Value'])
+                ex_cmd_call(command_data['Type'], command_data.get('Value', None))
         
     # 发送命令数据
     def send_command_data(self, cmd_type, cmd_value=None):

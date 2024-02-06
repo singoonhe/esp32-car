@@ -17,17 +17,24 @@ car_wheel = None
 # led提示灯
 car_led = None
 
+# timer相关const数据定义
+LED_TIMERID = const(-1)
+PWM_TIMERID = const(-1)
+NET_TIMERID = const(-1)
+
 # 摄像头截图循环
 def camera_loop():
     while True:
         # time.sleep(5)
         if network_wifi.is_target_enabled():
             img = camera.capture()
-            # print("capture:" + str(len(img)))
-            # 分段发送数据
-            send_list = network_data.pack(False, img)
-            for value in send_list:
-                network_wifi.send_data(value)
+            # 有可能img返回为bool类型
+            if isinstance(img, bytes):
+                # print("capture:" + str(len(img)))
+                # 分段发送数据
+                send_list = network_data.pack(False, img)
+                for value in send_list:
+                    network_wifi.send_data(value)
         else:
             # 连接未准备好时，减缓更新
             time.sleep_ms(100)
@@ -64,6 +71,9 @@ def ex_command_data(cmd_type, cmd_value):
         if len(move_info) >= 2:
             # 移动方向和速度
             car_wheel.set_speed_dir(int(move_info[0]), int(move_info[1]))
+    elif cmd_type == 'Battery':
+        # 发送当前电量值
+        network_wifi.send_command_data('Battery', '50')
     # 释放内存
     gc.collect()
     
@@ -82,7 +92,7 @@ def sys_interrupt_call():
     camera.deinit()
     # 车轮停止转动
     car_wheel.set_speed_dir(-1, 6)
-    # 连接成功常灭
+    # 常灭
     car_led.set_light(False)
 
 # 入口方法
@@ -91,7 +101,7 @@ def run_main():
     global network_wifi
     global car_led
     # 添加led指示引脚, 并传入timer_id
-    car_led = blink_led(13, -1)
+    car_led = blink_led(13, LED_TIMERID)
     # 初始化过程中急闪
     car_led.set_blink(0.5)
     # 使用IO2是否接低电平来控制使用AP模式
@@ -108,10 +118,10 @@ def run_main():
     network_wifi = wifi_network(wifi_info)
     # 初始化摄像机
     init_camera()
-    # 电机控制器, 指定SCL和SDL引脚, timer_id使用默认值-1
-    car_wheel = wheel_timer(15, 14, -1)
+    # 电机控制器, 指定SCL和SDL引脚
+    car_wheel = wheel_timer(15, 14, PWM_TIMERID)
     # 指定timer_id，并开始循环接收网络数据
-    network_wifi.start_socket(-1, wifi_target_link_call, ex_command_data, sys_interrupt_call)
+    network_wifi.start_socket(NET_TIMERID, wifi_target_link_call, ex_command_data, sys_interrupt_call)
 
 if __name__ == '__main__':
     run_main()

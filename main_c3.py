@@ -10,6 +10,10 @@ car_wheel = None
 # led提示灯
 car_led = None
 
+# timer相关const数据定义
+LED_TIMERID = const(0)
+NET_TIMERID = const(2)
+
 # 接收到自定义命令数据
 def ex_command_data(cmd_type, cmd_value):
     if cmd_type == 'Move':
@@ -32,7 +36,7 @@ def wifi_target_link_call(linked):
 def sys_interrupt_call():
     # 车轮停止转动
     car_wheel.set_speed_dir(-1, 6)
-    # 连接成功常灭
+    # 常灭
     car_led.set_light(False)
 
 # 入口方法
@@ -41,7 +45,7 @@ def run_main():
     global network_wifi
     global car_led
     # 添加led指示引脚, 并传入timer_id
-    car_led = blink_led(11, 0)
+    car_led = blink_led(11, LED_TIMERID)
     # 初始化过程中急闪
     car_led.set_blink(0.5)
     # 电机控制器, 指定控制电机的4个引脚。先左侧2电机，再右侧2电机
@@ -60,7 +64,7 @@ def run_main():
     # 初始化网络
     network_wifi = wifi_network(wifi_info)
     # 指定timer_id，并开始循环接收网络数据
-    network_wifi.start_socket(2, wifi_target_link_call, ex_command_data, sys_interrupt_call)
+    network_wifi.start_socket(NET_TIMERID, wifi_target_link_call, ex_command_data, sys_interrupt_call)
 
 if __name__ == '__main__':
     run_main()

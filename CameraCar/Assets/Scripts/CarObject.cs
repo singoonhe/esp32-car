@@ -31,6 +31,9 @@ public class CarObject : MonoBehaviour
     private object      recvLockObj = new object();
     private bool        takePhotoOnce = false;  // 是否拍照
     private float       noticeUpdateTime = 0;   // 提示文本更新时间
+    private float       battleUpdateTime = 0;  // 电池更新时间
+    private float       fpsUpdateTime = 0;      // FPS计算更新时间
+    private int         fpsCount = 0;           // FPS值
     // 绑定结点
     public InputField   ipInput;
     public Text         ipText;     // ip地址显示栏
@@ -41,8 +44,10 @@ public class CarObject : MonoBehaviour
     public Image        speedImg;   // 右侧速度拖动的图
     public Image        speedBgImg; // 右侧速度的背景图
     public RawImage     frameImg;   // 摄像机显示图
+    public Text         fpsText;    // 摄像机FPS文本
     public GameObject   photoObj;   // 拍照按钮对象
     public Text         noticeText; // 提示文本
+    public SlicedFilledImage batteryImg;    // 电量显示图
     // 按钮状态图
     public Sprite       wifiOff;    // wifi已连接状态图
     public Sprite       wifiOn;     // wifi未连接状态图
@@ -109,9 +114,17 @@ public class CarObject : MonoBehaviour
                 {
                     // 关闭网络连接，并不发送Logout
                     DisconnectCar("Disconnect network because of time out", false);
+                    continue;
                 }
                 // 发送移动事件，同时作为心跳使用
                 SendCmdData("Move", sendDirValue.ToString() + "|" + sendSpeedValue.ToString());
+
+                // 判断是否需要获取电池的信息
+                if ((Time.realtimeSinceStartup - noticeUpdateTime) > 10)
+                {
+                    SendCmdData("Battery");
+                    battleUpdateTime = Time.realtimeSinceStartup;
+                }
             }
             // 检查提示文本是否需要超时关闭
             if (noticeText.gameObject.activeSelf && (Time.realtimeSinceStartup - noticeUpdateTime) > 5)
@@ -125,6 +138,15 @@ public class CarObject : MonoBehaviour
         Debug.Log($"set camera to {enabled}");
         frameImg.gameObject.SetActive(enabled);
         photoObj.gameObject.SetActive(enabled);
+        // FPS文本显示
+        fpsText.gameObject.SetActive(enabled);
+        // 启动摄像机时更新一次FPS
+        if (enabled)
+        {
+            fpsCount = 0;
+            fpsText.text = $"FPS:0";
+            fpsUpdateTime = Time.realtimeSinceStartup;
+        }
     }
 
     // 开始连接网络
@@ -146,6 +168,8 @@ public class CarObject : MonoBehaviour
         udpClient.BeginReceive(new AsyncCallback(OnReceived), udpClient);
         // 发送登录命令
         SendCmdData("Login");
+        // 重置电量检测倒计时
+        battleUpdateTime = Time.realtimeSinceStartup;
         // 连接时迅速检测是否连接成功
         heartCount = 3;
     }
@@ -155,14 +179,21 @@ public class CarObject : MonoBehaviour
     {
         if (udpClient != null)
         {
-            var dstDic = new Dictionary<string, string>() {{"Type",typeName}};
-            if (typeValue != null)
+            try
             {
-                dstDic["Value"] = typeValue;
+                var dstDic = new Dictionary<string, string>() { { "Type", typeName } };
+                if (typeValue != null)
+                {
+                    dstDic["Value"] = typeValue;
+                }
+                byte[] data = Encoding.UTF8.GetBytes(Json.Encode(dstDic));
+                udpClient.Send(data, data.Length);
+                // Debug.Log($"Send message : {typeValue}");
             }
-            byte[] data = Encoding.UTF8.GetBytes(Json.Encode(dstDic));
-            udpClient.Send(data, data.Length);
-            // Debug.Log($"Send message : {typeValue}");
+            catch (Exception)
+            {
+                Debug.Log($"Send message : {typeValue} failed");
+            }
         }
     }
 
@@ -179,6 +210,18 @@ public class CarObject : MonoBehaviour
             // 判断拍照功能是否可用, ESP32-C3以T2开头
             SetCameraEnabled(!esp_id.StartsWith("T2"));
             ShowNoticeText($"Connect network {esp_id} success");
+            // 登录后获取一次电池信息
+            SendCmdData("Battery");
+            batteryImg.fillAmount = 0;
+        }
+        else if (typeCmd == "Battery")
+        {
+            // 更新电池信息
+            var battery_value = cmdDic["Value"] as string;
+            if (int.TryParse(battery_value, out int result))
+            {
+                batteryImg.fillAmount = result * 0.01f;
+            }
         }
         //else if (typeCmd == "Heart")
         //{
@@ -193,21 +236,28 @@ public class CarObject : MonoBehaviour
             return;
         }
 
-        UdpClient socket = result.AsyncState as UdpClient;
-        IPEndPoint source = new IPEndPoint(0, 0);
-        byte[] message = socket.EndReceive(result, ref source);
-        lock (recvLockObj)
+        try
         {
-            // 判断一下recvedBytes，保证Login能被执行
-            if (recvedBytes == null && message != null && message.Length > 1)
+            UdpClient socket = result.AsyncState as UdpClient;
+            IPEndPoint source = new IPEndPoint(0, 0);
+            byte[] message = socket.EndReceive(result, ref source);
+            lock (recvLockObj)
             {
-                recvedBytes = message;
+                // 判断一下recvedBytes，保证Login能被执行
+                if (recvedBytes == null && message != null && message.Length > 1)
+                {
+                    recvedBytes = message;
+                }
             }
+            // 接收到数据，计数重置
+            heartCount = 0;
+            // 继续接收数据
+            socket.BeginReceive(new AsyncCallback(OnReceived), socket);
         }
-        // 接收到数据，计数重置
-        heartCount = 0;
-        // 继续接收数据
-        socket.BeginReceive(new AsyncCallback(OnReceived), socket);
+        catch (Exception)
+        {
+            Debug.Log("Recv message failed");
+        }
     }
 
     private void Update()
@@ -307,6 +357,14 @@ public class CarObject : MonoBehaviour
                     });
                 }
                 takePhotoOnce = false;
+            }
+            // FPS计算更新
+            fpsCount += 1;
+            if ((Time.realtimeSinceStartup - fpsUpdateTime) > 1)
+            {
+                fpsText.text = $"FPS:{fpsCount}";
+                fpsCount = 0;
+                fpsUpdateTime = Time.realtimeSinceStartup;
             }
         }
     }
