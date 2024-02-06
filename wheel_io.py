@@ -72,6 +72,7 @@ class wheel_timer:
             # 发送当前的i2c数据
             self.write_buff[0] = i2c_byte & 0xFF
             self.i2c.writeto(self.i2c_addr, self.write_buff)
+            # print('wheel_timer: %d' % i2c_byte)
             # 模拟PWM占空比
             self.cur_pwm_cnt += 1
             if self.cur_pwm_cnt >= PWM_FRAME_COUNT:

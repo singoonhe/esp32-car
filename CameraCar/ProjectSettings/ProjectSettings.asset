@@ -160,6 +160,7 @@ PlayerSettings:
   applicationIdentifier:
     Android: com.singoon.CameraCar
     Standalone: com.singoon.CameraCar
+    iPhone: com.singoon.CameraCar
   buildNumber:
     Standalone: 0
     VisionOS: 0

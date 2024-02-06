@@ -18,9 +18,9 @@ car_wheel = None
 car_led = None
 
 # timer相关const数据定义
-LED_TIMERID = const(-1)
-PWM_TIMERID = const(-1)
-NET_TIMERID = const(-1)
+LED_TIMERID = const(0)
+PWM_TIMERID = const(1)
+NET_TIMERID = const(2)
 
 # 摄像头截图循环
 def camera_loop():

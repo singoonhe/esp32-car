@@ -136,6 +136,7 @@ class wifi_network:
         if self.cmd_heart:
             self.send_command_data('Heart')
         self.network_check += 1
+        # print('self.network_check: %d' % self.network_check)
         if self.command_target != None and self.network_check > 4:
             self.command_target = None
             self.target_link_call(False)
