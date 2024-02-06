@@ -77,16 +77,18 @@ public class CarObject : MonoBehaviour
         // 初始不可用拍照功能
         SetCameraEnabled(false);
         // 读取历史连接地址
+        var initIpAddr = ipText.text;
         configPath = Application.persistentDataPath + "/ip.txt";
         if (File.Exists(configPath))
         {
             string fileContent = File.ReadAllText(configPath);
             if (!string.IsNullOrEmpty(fileContent) && IPAddress.TryParse(fileContent, out IPAddress ipAddress))
             {
-                // 自动连接网络
-                StartConnect(ipAddress.ToString());
+                initIpAddr = ipAddress.ToString();
             }
         }
+        // 自动连接网络
+        StartConnect(initIpAddr);
         // 限制帧率
         Application.targetFrameRate = 30;
     }
@@ -120,7 +122,7 @@ public class CarObject : MonoBehaviour
                 SendCmdData("Move", sendDirValue.ToString() + "|" + sendSpeedValue.ToString());
 
                 // 判断是否需要获取电池的信息
-                if ((Time.realtimeSinceStartup - noticeUpdateTime) > 10)
+                if ((Time.realtimeSinceStartup - battleUpdateTime) > 10)
                 {
                     SendCmdData("Battery");
                     battleUpdateTime = Time.realtimeSinceStartup;
@@ -342,19 +344,18 @@ public class CarObject : MonoBehaviour
             // 将图片保存下载
             if (takePhotoOnce)
             {
-                var permissionRet = NativeGallery.CheckPermission(NativeGallery.PermissionType.Write, NativeGallery.MediaType.Image);
-                if (permissionRet == NativeGallery.Permission.Denied)
-                    ShowNoticeText("No save photo permission");
-                else if (permissionRet == NativeGallery.Permission.Granted)
-                    NativeGallery.RequestPermissionAsync(NativeGallery.PermissionType.Write, NativeGallery.MediaType.Image);
-                else
+                // 以当前时间作用文件名
+                var photoName = "Car_" + DateTime.Now.ToString("HH_mm_ss_fff") + ".png";
+                var retPermission = NativeGallery.SaveImageToGallery(cameraBytes, "Camera-Car", photoName, (bool success, string path) =>
                 {
-                    // 以当前时间作用文件名
-                    var photoName = "Car_" + DateTime.Now.ToString("HH_mm_ss_fff");
-                    NativeGallery.SaveImageToGallery(cameraBytes, "Camera-Car", photoName, (bool success, string path) =>
+                    if (success)
                     {
                         ShowNoticeText($"Save photo to {photoName}");
-                    });
+                    }
+                });
+                if (retPermission == NativeGallery.Permission.Denied)
+                {
+                    ShowNoticeText("No save photo permission");
                 }
                 takePhotoOnce = false;
             }
