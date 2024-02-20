@@ -16,6 +16,8 @@ network_wifi = None
 car_wheel = None
 # led提示灯
 car_led = None
+# 更新电量标记
+battery_update_mark = False
 
 # timer相关const数据定义
 LED_TIMERID = const(0)
@@ -65,15 +67,22 @@ def init_camera():
 
 # 接收到自定义命令数据
 def ex_command_data(cmd_type, cmd_value):
+    global battery_update_mark
     if cmd_type == 'Move':
         # 接收到移动事件
         move_info = cmd_value.split('|')
         if len(move_info) >= 2:
             # 移动方向和速度
-            car_wheel.set_speed_dir(int(move_info[0]), int(move_info[1]))
+            move_dir = int(move_info[0])
+            car_wheel.set_speed_dir(move_dir, int(move_info[1]))
+            # 上传一次当前电量
+            if battery_update_mark and move_dir == -1:
+                network_wifi.send_command_data('Battery', '50')
+                battery_update_mark = False
     elif cmd_type == 'Battery':
-        # 发送当前电量值
-        network_wifi.send_command_data('Battery', '50')
+        # 标记需要回传电量值
+        # 仅电机不转动时才回传电压，避免电量波动
+        battery_update_mark = True
     # 释放内存
     gc.collect()
     

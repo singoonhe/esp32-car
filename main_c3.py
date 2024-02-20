@@ -12,6 +12,8 @@ car_wheel = None
 car_led = None
 # ADC
 car_adc = None
+# 更新电量标记
+battery_update_mark = False
 
 # timer相关const数据定义
 LED_TIMERID = const(0)
@@ -19,16 +21,22 @@ NET_TIMERID = const(2)
 
 # 接收到自定义命令数据
 def ex_command_data(cmd_type, cmd_value):
+    global battery_update_mark
     if cmd_type == 'Move':
         # 接收到移动事件
         move_info = cmd_value.split('|')
         if len(move_info) >= 2:
             # 移动方向和速度
-            car_wheel.set_speed_dir(int(move_info[0]), int(move_info[1]))
+            move_dir = int(move_info[0])
+            car_wheel.set_speed_dir(move_dir, int(move_info[1]))
+            # 上传一次当前电量
+            if battery_update_mark and move_dir == -1:
+                network_wifi.send_command_data('Battery', '50')
+                battery_update_mark = False
     elif cmd_type == 'Battery':
-        # 发送当前电量值
-#         print(car_adc.read())
-        network_wifi.send_command_data('Battery', '50')
+        # 标记需要回传电量值
+        # 仅电机不转动时才回传电压，避免电量波动
+        battery_update_mark = True
         
 # 网络target变化回调
 def wifi_target_link_call(linked):
