@@ -63,7 +63,7 @@ def run_main():
     # 电机控制器, 指定控制电机的4个引脚。先左侧2电机，再右侧2电机
     # L298N使用2个PWM引脚来控制速度
     car_wheel = wheel_pwm([2,3, 5,4], [10,8], 123, 1023)
-    # 使用指定IO是否接低电平来控制使用AP模式
+    # 使用指定IO是否接低电平来控制使用非AP模式
     wifi_info = {'ap_pin':13}
     # 配置AP时的网络信息
     wifi_info['ap_name'] = 'CAR_HYX'

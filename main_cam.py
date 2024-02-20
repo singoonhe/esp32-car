@@ -104,7 +104,7 @@ def run_main():
     car_led = blink_led(13, LED_TIMERID)
     # 初始化过程中急闪
     car_led.set_blink(0.5)
-    # 使用IO2是否接低电平来控制使用AP模式
+    # 使用IO2是否接低电平来控制使用非AP模式
     wifi_info = {'ap_pin':2}
     # 配置AP时的网络信息
     wifi_info['ap_name'] = 'CAR_HGH'
