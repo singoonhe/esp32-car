@@ -117,8 +117,11 @@ class wifi_network:
             if cmd_value != None:
                 pack_obj['Value'] = cmd_value
             send_value = network_data.pack(True, pack_obj)
-            self.udp_socket.sendto(send_value, self.command_target)
-            # print('send message length: %d' % len(send_value))
+            try:
+                self.udp_socket.sendto(send_value, self.command_target)
+                # print('send message length: %d' % len(send_value))
+            except OSError:
+                print('send message OSError')
 
     # 发送指定的数据
     def send_data(self, data):

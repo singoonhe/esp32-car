@@ -6,7 +6,7 @@ class blink_led:
     # pin:指定引脚
     # timer_id:指定的定时器Id
     def __init__(self, pin, timer_id):
-        self.led_pin = Pin(pin, Pin.OUT)
+        self.led_pin = Pin(pin, Pin.OUT, Pin.PULL_DOWN)
         # 闪烁时当前的值
         self.blink_light = False
         # 初始化定时器，预设置一个超级大的值

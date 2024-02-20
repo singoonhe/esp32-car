@@ -2,7 +2,7 @@
 from led import blink_led
 from wifi import wifi_network
 from wheel_pwm import wheel_pwm
-from machine import Pin, ADC
+from battery import adc_battery
 
 # 网络wifi对象
 network_wifi = None
@@ -31,7 +31,9 @@ def ex_command_data(cmd_type, cmd_value):
             car_wheel.set_speed_dir(move_dir, int(move_info[1]))
             # 上传一次当前电量
             if battery_update_mark and move_dir == -1:
-                network_wifi.send_command_data('Battery', '50')
+                # 发送当前电量值
+                cur_battery = car_adc.get_battery_per()
+                network_wifi.send_command_data('Battery', str(cur_battery))
                 battery_update_mark = False
     elif cmd_type == 'Battery':
         # 标记需要回传电量值
@@ -45,7 +47,7 @@ def wifi_target_link_call(linked):
         car_led.set_light(True)
     else:
         # 断开连接或等待连接，闪烁效果
-        car_led.set_blink(1)
+        car_led.set_blink(0.5)
         # 车轮停止转动
         car_wheel.set_speed_dir(-1, 1)
 
@@ -63,14 +65,12 @@ def run_main():
     global car_led
     global car_adc
     # 指定引脚读取ADC
-    car_adc = ADC(Pin(1))
+    car_adc = adc_battery(1)
     # 添加led指示引脚, 并传入timer_id
-    car_led = blink_led(11, LED_TIMERID)
-    # 初始化过程中急闪
-    car_led.set_blink(0.5)
+    car_led = blink_led(7, LED_TIMERID)
     # 电机控制器, 指定控制电机的4个引脚。先左侧2电机，再右侧2电机
     # L298N使用2个PWM引脚来控制速度
-    car_wheel = wheel_pwm([2,3, 5,4], [10,8], 123, 1023)
+    car_wheel = wheel_pwm([2,3, 5,4], [10,8], 223, 1023)
     # 使用指定IO是否接低电平来控制使用非AP模式
     wifi_info = {'ap_pin':13}
     # 配置AP时的网络信息
