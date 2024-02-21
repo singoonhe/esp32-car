@@ -9,20 +9,22 @@ class blink_led:
         self.led_pin = Pin(pin, Pin.OUT, Pin.PULL_DOWN)
         # 闪烁时当前的值
         self.blink_light = False
-        # 初始化定时器，预设置一个超级大的值
-        self.led_timer = Timer(timer_id)
+        # 初始化定时器, 传入非法timer_id表示不启动闪烁功能
+        if timer_id >= -1:
+            self.led_timer = Timer(timer_id)
     
     # 设置常亮或常灭
     def set_light(self, light):
         self.blink_light = light
         self.led_pin.value(int(self.blink_light))
         # 取消回调
-        self.led_timer.deinit()
+        if self.led_timer:
+            self.led_timer.deinit()
             
     # 设置闪烁
     # interval:设置闪烁间隔时间
     def set_blink(self, interval):
-        if interval < 0.1:
+        if interval < 0.1 or not self.led_timer:
             return
         # 闪烁前先熄灭led
         self.set_light(False)

@@ -3,11 +3,11 @@ import time
 import gc
 import camera
 import _thread
-from machine import Pin
+from led import blink_led
 from wifi import wifi_network
 from data import network_data
 from wheel_io import wheel_timer
-from led import blink_led
+from battery import adc_battery
 # import cam_config as cc
 
 # 网络wifi对象
@@ -16,10 +16,15 @@ network_wifi = None
 car_wheel = None
 # led提示灯
 car_led = None
+# led照明灯
+car_light = None
+# ADC
+car_adc = None
 # 更新电量标记
 battery_update_mark = False
 
 # timer相关const数据定义
+NONE_TIMERID = const(-999)
 LED_TIMERID = const(0)
 PWM_TIMERID = const(1)
 NET_TIMERID = const(2)
@@ -77,12 +82,17 @@ def ex_command_data(cmd_type, cmd_value):
             car_wheel.set_speed_dir(move_dir, int(move_info[1]))
             # 上传一次当前电量
             if battery_update_mark and move_dir == -1:
-                network_wifi.send_command_data('Battery', '50')
+                # 发送当前电量值
+                cur_battery = car_adc.get_battery_per()
+                network_wifi.send_command_data('Battery', str(cur_battery))
                 battery_update_mark = False
     elif cmd_type == 'Battery':
         # 标记需要回传电量值
         # 仅电机不转动时才回传电压，避免电量波动
         battery_update_mark = True
+    elif cmd_type == 'Light':
+        # 照明灯亮或灭
+        car_led.set_light(cmd_value == 'On')
     # 释放内存
     gc.collect()
     
@@ -93,26 +103,35 @@ def wifi_target_link_call(linked):
         car_led.set_light(True)
     else:
         # 断开连接或等待连接，闪烁效果
-        car_led.set_blink(1)
-        
+        car_led.set_blink(0.5)
+        # 车轮停止转动
+        car_wheel.set_speed_dir(-1, 1)
+
 # 系统中断回调方法():
 def sys_interrupt_call():
     # 释放camera
     camera.deinit()
     # 车轮停止转动
-    car_wheel.set_speed_dir(-1, 6)
-    # 常灭
+    car_wheel.set_speed_dir(-1, 1)
+    # 所有灯常灭
     car_led.set_light(False)
+    car_light.set_light(False)
 
 # 入口方法
 def run_main():
     global car_wheel
     global network_wifi
     global car_led
+    global car_light
+    global car_adc
+    # 指定引脚读取ADC
+    car_adc = adc_battery(12)
     # 添加led指示引脚, 并传入timer_id
     car_led = blink_led(13, LED_TIMERID)
     # 初始化过程中急闪
-    car_led.set_blink(0.5)
+    car_led.set_blink(0.1)
+    # 初始化照明灯，不启用闪烁功能
+    car_light = blink_led(4, NONE_TIMERID)
     # 使用IO2是否接低电平来控制使用非AP模式
     wifi_info = {'ap_pin':2}
     # 配置AP时的网络信息
