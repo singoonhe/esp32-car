@@ -46,12 +46,11 @@ class wheel_pwm:
             # 转换方向到-45~225之间
             if move_dir >= 315:
                 move_dir -= 360
-            # 右轮限制方向到0~90之间, 超过90为最大值
-            right_angle = max(0, min(move_dir, 90))
-            pwm_right = int(max(0, min((right_angle / 90) * speed, speed)))
-            # 左轮限制方向到0~90之间, 超过90为最大值
-            left_angle = max(0, min(180-move_dir, 90))
-            pwm_left = int(max(0, min((left_angle / 90) * speed, speed)))
+            # 将90度分成speed+1份，计算当前处于的区间值
+            step_angle = 90 / (speed + 1)
+            # 设置左右轮的速度值
+            pwm_right = max(0, min(int(move_dir / step_angle), speed))
+            pwm_left = max(0, min(int((180-move_dir) / step_angle), speed))
         # 设置左侧电机
         self.set_pin_values(0, value1, value2, pwm_left)
         # 设置右侧电机
