@@ -106,6 +106,8 @@ def wifi_target_link_call(linked):
         car_led.set_blink(0.5)
         # 车轮停止转动
         car_wheel.set_speed_dir(-1, 1)
+        # 照明灯灭掉
+        car_light.set_light(False)
 
 # 系统中断回调方法():
 def sys_interrupt_call():

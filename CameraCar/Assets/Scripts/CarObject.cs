@@ -34,6 +34,7 @@ public class CarObject : MonoBehaviour
     private float       battleUpdateTime = 0;  // 电池更新时间
     private float       fpsUpdateTime = 0;      // FPS计算更新时间
     private int         fpsCount = 0;           // FPS值
+    private bool        lightState = false;     // 电筒是否亮
     // 绑定结点
     public InputField   ipInput;
     public Text         ipText;     // ip地址显示栏
@@ -48,6 +49,7 @@ public class CarObject : MonoBehaviour
     public GameObject   photoObj;   // 拍照按钮对象
     public Text         noticeText; // 提示文本
     public SlicedFilledImage batteryImg;    // 电量显示图
+    public Image        lightImg;   // 电筒指示图
     // 按钮状态图
     public Sprite       wifiOff;    // wifi已连接状态图
     public Sprite       wifiOn;     // wifi未连接状态图
@@ -151,6 +153,16 @@ public class CarObject : MonoBehaviour
         }
     }
 
+    // 设置电筒是否明亮
+    private void SetLightOn(bool isOn)
+    {
+        Debug.Log($"set light to {isOn}");
+        lightState = isOn;
+        lightImg.color = isOn ? new Color(0.34f, 0.46f, 1.0f) : new Color(0.611f, 0.611f, 0.611f);
+        // 发送命令
+        SendCmdData("Light", isOn ? "On" : "Down");
+    }
+
     // 开始连接网络
     private void StartConnect(string ipStr)
     {
@@ -215,6 +227,8 @@ public class CarObject : MonoBehaviour
             // 登录后获取一次电池信息
             SendCmdData("Battery");
             batteryImg.fillAmount = 0;
+            // 设置灯光状态
+            SetLightOn(lightState);
         }
         else if (typeCmd == "Battery")
         {
@@ -418,6 +432,12 @@ public class CarObject : MonoBehaviour
     {
         // 标记拍照一次，具体保存在Update中执行
         takePhotoOnce = true;
+    }
+
+    // 灯光按钮事件
+    public void OnLightAction()
+    {
+        SetLightOn(!lightState);
     }
 
     // 主动断开网络连接
