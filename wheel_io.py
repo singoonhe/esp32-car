@@ -51,13 +51,12 @@ class wheel_timer:
             # 转换方向到-45~225之间
             if move_dir >= 315:
                 move_dir -= 360
-            # 右轮限制方向到0~90之间, 超过90为最大值
-            right_angle = max(0, min(move_dir, 90))
-            self.pwm_right = int(max(0, min((right_angle / 90) * speed, speed)))
-            # 左轮限制方向到0~90之间, 超过90为最大值
-            left_angle = max(0, min(180-move_dir, 90))
-            self.pwm_left = int(max(0, min((left_angle / 90) * speed, speed)))
-            
+            # 将90度分成speed+1份，计算当前处于的区间值
+            step_angle = 90 / (speed + 1)
+            # 设置左右轮的速度值
+            self.pwm_right = max(0, min(int(move_dir / step_angle), speed))
+            self.pwm_left = max(0, min(int((180-move_dir) / step_angle), speed))
+            print(self.pwm_right, self.pwm_left)
         
     # 车轮定时回调
     def wheel_timer_callback(self, t):
@@ -65,10 +64,10 @@ class wheel_timer:
             i2c_byte = 0b00000000
             # 记录左轮的控制位数据
             if self.pwm_left > self.cur_pwm_cnt:
-                i2c_byte |= self.move_front and 0b01000000 or 0b10000000
+                i2c_byte |= self.move_front and 0b01010000 or 0b10100000
             # 记录右轮的控制位数据
             if self.pwm_right > self.cur_pwm_cnt:
-                i2c_byte |= self.move_front and 0b00000100 or 0b00001000
+                i2c_byte |= self.move_front and 0b00000101 or 0b00001010
             # 发送当前的i2c数据
             self.write_buff[0] = i2c_byte & 0xFF
             self.i2c.writeto(self.i2c_addr, self.write_buff)

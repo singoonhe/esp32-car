@@ -92,7 +92,7 @@ def ex_command_data(cmd_type, cmd_value):
         battery_update_mark = True
     elif cmd_type == 'Light':
         # 照明灯亮或灭
-        car_led.set_light(cmd_value == 'On')
+        car_light.set_light(cmd_value == 'On')
     # 释放内存
     gc.collect()
     

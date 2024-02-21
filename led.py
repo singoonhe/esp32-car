@@ -12,6 +12,8 @@ class blink_led:
         # 初始化定时器, 传入非法timer_id表示不启动闪烁功能
         if timer_id >= -1:
             self.led_timer = Timer(timer_id)
+        else:
+            self.led_timer = None
     
     # 设置常亮或常灭
     def set_light(self, light):
