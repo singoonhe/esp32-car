@@ -121,7 +121,7 @@ class wifi_network:
                 self.udp_socket.sendto(send_value, self.command_target)
                 # print('send message length: %d' % len(send_value))
             except OSError:
-                print('send message OSError:' + send_value)
+                print(b'send message OSError:' + send_value)
 
     # 发送指定的数据
     def send_data(self, data):
