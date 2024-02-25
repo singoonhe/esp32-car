@@ -125,9 +125,12 @@ class wifi_network:
 
     # 发送指定的数据
     def send_data(self, data):
-        if self.is_target_enabled():
-            self.udp_socket.sendto(data, self.command_target)
-            # print('send message length: %d' % len(data))
+        try:
+            if self.is_target_enabled():
+                self.udp_socket.sendto(data, self.command_target)
+                # print('send message length: %d' % len(data))
+        except TypeError:
+            pass
 
     # 返回是否可以发送数据
     def is_target_enabled(self):
