@@ -349,11 +349,21 @@ public class CarObject : MonoBehaviour
             Texture2D texture = new Texture2D(32, 32);
             if (texture.LoadImage(cameraBytes))
             {
+                // 将原Texture删除，避免内存膨胀
+                if (frameImg.texture)
+                {
+                    Destroy(frameImg.texture);
+                }
                 // Debug.Log($"texture1 {texture}, {texture.width}, {texture.height}");
                 // 将Texture2D设置给RawImage组件
                 frameImg.texture = texture;
                 // 重置显示大小
-                (frameImg.transform as RectTransform).sizeDelta = new Vector2(texture.width * Screen.height / texture.height, Screen.height);
+                (frameImg.transform as RectTransform).sizeDelta = new Vector2(texture.width * 720 / texture.height, 720);
+            }
+            else
+            {
+                // 删除刚创建的Texture
+                Destroy(texture);
             }
             // 将图片保存下载
             if (takePhotoOnce)
