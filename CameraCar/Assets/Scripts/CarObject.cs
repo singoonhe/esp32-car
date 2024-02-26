@@ -14,6 +14,7 @@ using System.Collections;
 
 public class CarObject : MonoBehaviour
 {
+    #region 私有变量
     private string      configPath;
     private UdpClient   udpClient = null;
     private int         dstPort = 7890;
@@ -24,17 +25,24 @@ public class CarObject : MonoBehaviour
     private const float dirMoveDis = 75;    // 方向键移动的最大距离
     private int         dirPointId = -1;
     private int         speedPointId = -1;
+    private int         rotatePointId = -1;
     private int         sendDirValue = -1;  // 移动的方向值
     private int         sendSpeedValue = 6; // 移动的速度值
+    private Vector2     lastRotatePos = Vector2.zero;   // 云台上次滑动的位置
+    private int         rotateMoveDis = 0;  // 云台上次滑动的距离
 
     private byte[]      recvedBytes = null; // 网络数据缓存
     private object      recvLockObj = new object();
     private bool        takePhotoOnce = false;  // 是否拍照
     private float       noticeUpdateTime = 0;   // 提示文本更新时间
-    private float       battleUpdateTime = 0;  // 电池更新时间
+    private float       battleUpdateTime = 0;   // 电池更新时间
     private float       fpsUpdateTime = 0;      // FPS计算更新时间
     private int         fpsCount = 0;           // FPS值
     private bool        lightState = false;     // 电筒是否亮
+    private float       camMoveRotate = 0;      // 当前云台位置，0表示正对位置
+    #endregion
+
+    #region 绑定结点
     // 绑定结点
     public InputField   ipInput;
     public Text         ipText;     // ip地址显示栏
@@ -50,14 +58,16 @@ public class CarObject : MonoBehaviour
     public Text         noticeText; // 提示文本
     public SlicedFilledImage batteryImg;    // 电量显示图
     public Image        lightImg;   // 电筒指示图
+    public GameObject   rotateCenterObj;    // 摄像机云台居中按钮
     // 按钮状态图
     public Sprite       wifiOff;    // wifi已连接状态图
     public Sprite       wifiOn;     // wifi未连接状态图
+    #endregion
 
     // udp接收到的数据
     Dictionary<int, Dictionary<int, byte[]>> receivedSlices = new Dictionary<int, Dictionary<int, byte[]>>();
     Queue<int> receivedFrameQueue = new Queue<int>();
-
+    #region 处理方法
     private void Start()
     {
         dirOrginPos = new Vector2(dirImg.transform.localPosition.x, dirImg.transform.localPosition.y);
@@ -72,9 +82,16 @@ public class CarObject : MonoBehaviour
         AddTriggerEvent(speedTrigger, EventTriggerType.BeginDrag, OnSpeedBeginDrag);
         AddTriggerEvent(speedTrigger, EventTriggerType.Drag, OnSpeedDrag);
         AddTriggerEvent(speedTrigger, EventTriggerType.EndDrag, OnSpeedEndDrag);
+        // 为云台添加事件
+        var rotateTrigger = frameImg.GetComponent<EventTrigger>();
+        AddTriggerEvent(rotateTrigger, EventTriggerType.BeginDrag, OnRotateBeginDrag);
+        AddTriggerEvent(rotateTrigger, EventTriggerType.Drag, OnRotateDrag);
+        AddTriggerEvent(rotateTrigger, EventTriggerType.EndDrag, OnRotateEndDrag);
 
         // 启动连接判断定时器
         timerCoroutine = StartCoroutine(StartNetCheckTimer(0.1f));
+        // 启动云台旋转判断定时器
+        StartCoroutine(RotateCheckTimer(0.5f));
 
         // 初始不可用拍照功能
         SetCameraEnabled(false);
@@ -136,12 +153,33 @@ public class CarObject : MonoBehaviour
         }
     }
 
+    // 云台旋转定时器
+    IEnumerator RotateCheckTimer(float interval)
+    {
+        while (true)
+        {
+            yield return new WaitForSeconds(interval);
+            // 处理云台的旋转
+            if (rotateMoveDis != 0)
+            {
+                // 转换到当前分辨率的距离
+                var moveDis = rotateMoveDis * 720.0f / Screen.height;
+                // 按移动360对应90度来计算最终位置
+                camMoveRotate = camMoveRotate + (int)(moveDis * 0.25f);
+                // 发送当前位置
+                SendCmdData("Rotate", camMoveRotate.ToString());
+                rotateMoveDis = 0;
+            }
+        }
+    }
+
     // 设置Camera是否可用
     private void SetCameraEnabled(bool enabled)
     {
         Debug.Log($"set camera to {enabled}");
         frameImg.gameObject.SetActive(enabled);
-        photoObj.gameObject.SetActive(enabled);
+        photoObj.SetActive(enabled);
+        rotateCenterObj.SetActive(enabled);
         // FPS文本显示
         fpsText.gameObject.SetActive(enabled);
         // 启动摄像机时更新一次FPS
@@ -227,6 +265,8 @@ public class CarObject : MonoBehaviour
             // 登录后获取一次电池信息
             SendCmdData("Battery");
             batteryImg.fillAmount = 0;
+            // 登录后重置云台位置
+            OnRotateCenter();
             // 设置灯光状态
             SetLightOn(lightState);
         }
@@ -278,6 +318,7 @@ public class CarObject : MonoBehaviour
 
     private void Update()
     {
+        // 处理UDP收到的数据
         if (recvedBytes != null)
         {
             lock(recvLockObj)
@@ -450,6 +491,13 @@ public class CarObject : MonoBehaviour
         SetLightOn(!lightState);
     }
 
+    // 居中事件
+    public void OnRotateCenter()
+    {
+        camMoveRotate = 0;
+        SendCmdData("Rotate", camMoveRotate.ToString());
+    }
+
     // 主动断开网络连接
     private void DisconnectCar(string logStr, bool logout)
     {
@@ -501,7 +549,9 @@ public class CarObject : MonoBehaviour
             ipInput.gameObject.SetActive(false);
         }
     }
-    ///////////////////////////////////////////////拖动事件///////////////////////////////////////////////
+    #endregion
+
+    #region 移动拖动盘
     // 方向开始拖动事件
     public void OnDirBeginDrag(BaseEventData eventData)
     {
@@ -570,7 +620,9 @@ public class CarObject : MonoBehaviour
         // 取消位置事件发送
         SetDirAngle(Vector2.zero);
     }
+    #endregion
 
+    #region 调速拖动事件
     // 速度拖动事件
     public void OnSpeedBeginDrag(BaseEventData eventData)
     {
@@ -614,4 +666,34 @@ public class CarObject : MonoBehaviour
     {
         speedPointId = -1;
     }
+    #endregion
+
+    #region 云台旋转事件
+    // 旋转拖动事件
+    public void OnRotateBeginDrag(BaseEventData eventData)
+    {
+        var pointData = (eventData as PointerEventData);
+        rotatePointId = pointData.pointerId;
+        // 记录当前位置
+        lastRotatePos = pointData.position;
+    }
+
+    // 旋转拖动事件
+    public void OnRotateDrag(BaseEventData eventData)
+    {
+        var pointData = (eventData as PointerEventData);
+        if (rotatePointId == pointData.pointerId)
+        {
+            if (rotateMoveDis == 0)
+                lastRotatePos = pointData.position;
+            rotateMoveDis = (int)(pointData.position.x - lastRotatePos.x);
+        }
+    }
+
+    // 旋转拖动完成事件
+    public void OnRotateEndDrag(BaseEventData eventData)
+    {
+        rotatePointId = -1;
+    }
+    #endregion
 }
