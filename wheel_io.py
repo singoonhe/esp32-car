@@ -24,6 +24,8 @@ class wheel_timer:
         self.cur_pwm_cnt = 0
         # 车轮是否向前
         self.move_front = True
+        # 上一次发送的i2c值，避免重复发送
+        self.last_byte = 0x00
         # 开启车轮改变定时器
         self.i2c_addr = None
         if len(i2c_devices) > 0:
@@ -92,8 +94,10 @@ class wheel_timer:
                     self.blink_time = cur_time
             # 发送当前的i2c数据
             self.write_buff[0] = i2c_byte | self.blink_byte
-            self.i2c.writeto(self.i2c_addr, self.write_buff)
-            # print('wheel_timer: %d' % i2c_byte)
+            if self.last_byte != self.write_buff[0]:
+                self.i2c.writeto(self.i2c_addr, self.write_buff)
+                self.last_byte = self.write_buff[0]
+#                 print('wheel_timer: %d' % i2c_byte)
             # 模拟PWM占空比
             self.cur_pwm_cnt += 1
             if self.cur_pwm_cnt >= PWM_FRAME_COUNT:

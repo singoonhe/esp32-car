@@ -7,7 +7,7 @@ from led import blink_led
 from wifi import wifi_network
 from data import network_data
 from wheel_io import wheel_timer
-import cam_config as cc
+# import cam_config as cc
 
 # 网络wifi对象
 network_wifi = None
@@ -46,20 +46,20 @@ def init_camera():
     # https://github.com/singoonhe/esp32-cam-micropython-2022
     # 10帧左右，不报内存问题
     # set camera configuration
-    cc.configure(camera, cc.ai_thinker)
-    camera.conf(cc.PIXFORMAT,cc.PIXFORMAT_JPEG) # both pixformat and 
-    camera.conf(cc.FRAMESIZE,cc.FRAMESIZE_SVGA) # framesize MUST before camera.init
-    camera.init()
+    # cc.configure(camera, cc.ai_thinker)
+    # camera.conf(cc.PIXFORMAT,cc.PIXFORMAT_JPEG) # both pixformat and 
+    # camera.conf(cc.FRAMESIZE,cc.FRAMESIZE_SVGA) # framesize MUST before camera.init
+    # camera.init()
     # other setting after init
-    camera.quality(12)
+    # camera.quality(12)
     
     # https://github.com/singoonhe/micropython-camera-driver
     # 15帧左右，报EV-EOF-OVF(可能是内存不足)
     # ESP32-CAM (default configuration) - https://bit.ly/2Ndn8tN
     # xclk_freq:设置20加快内部传输速度，默认为10
     # fb_size：默认为1，设置2后速度双倍
-    # camera.init(0, format=camera.JPEG, fb_location=camera.PSRAM, xclk_freq=camera.XCLK_20MHz, fb_size = 2)
-    # camera.framesize(camera.FRAME_SVGA)
+    camera.init(0, format=camera.JPEG, fb_location=camera.PSRAM, xclk_freq=camera.XCLK_20MHz, fb_size = 2)
+    camera.framesize(camera.FRAME_SVGA)
     # camera.quality = 20
     # The options are the following:
     # FRAME_96X96 FRAME_QQVGA FRAME_QCIF FRAME_HQVGA FRAME_240X240
@@ -114,8 +114,6 @@ def run_main():
     global network_wifi
     global car_light
     global cam_sg
-    # 初始化舵机对象，初始偏移为90度
-    cam_sg = sg90.sg90(2, 90)
     # 初始化照明灯，不启用闪烁功能
     car_light = blink_led(4, NONE_TIMERID)
     # 电机控制器, 指定SCL和SDA引脚
@@ -136,6 +134,8 @@ def run_main():
     network_wifi = wifi_network(wifi_info)
     # 初始化摄像机
     init_camera()
+    # 初始化舵机对象，初始偏移为90度
+    cam_sg = sg90.sg90(2, 90)
     # 指定timer_id，并开始循环接收网络数据
     network_wifi.start_socket(NET_TIMERID, wifi_target_link_call, ex_command_data, sys_interrupt_call)
 
