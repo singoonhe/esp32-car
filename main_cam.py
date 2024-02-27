@@ -2,6 +2,7 @@
 import time
 import camera
 import _thread
+import sg90
 from led import blink_led
 from wifi import wifi_network
 from data import network_data
@@ -14,6 +15,8 @@ network_wifi = None
 car_wheel = None
 # led照明灯
 car_light = None
+# 舵机对象
+cam_sg = None
 
 # timer相关const数据定义
 NONE_TIMERID = const(-999)
@@ -78,6 +81,10 @@ def ex_command_data(cmd_type, cmd_value):
     elif cmd_type == 'Light':
         # 照明灯亮或灭
         car_light.set_light(cmd_value == 'On')
+    elif cmd_type == 'Rotate':
+        # 舵机旋转, 最大120度。从-60~60范围
+        # 操作台划动方向与舵机方向相反，故添加-号
+        cam_sg.rotate(-int(cmd_value))
     
 # 网络target变化回调
 def wifi_target_link_call(linked):
@@ -106,6 +113,9 @@ def run_main():
     global car_wheel
     global network_wifi
     global car_light
+    global cam_sg
+    # 初始化舵机对象，初始偏移为90度
+    cam_sg = sg90.sg90(2, 90)
     # 初始化照明灯，不启用闪烁功能
     car_light = blink_led(4, NONE_TIMERID)
     # 电机控制器, 指定SCL和SDA引脚

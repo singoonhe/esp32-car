@@ -29,7 +29,7 @@ public class CarObject : MonoBehaviour
     private int         sendDirValue = -1;  // 移动的方向值
     private int         sendSpeedValue = 6; // 移动的速度值
     private Vector2     lastRotatePos = Vector2.zero;   // 云台上次滑动的位置
-    private int         rotateMoveDis = 0;  // 云台上次滑动的距离
+    private float       rotateMoveDis = 0;  // 云台上次滑动的距离
 
     private byte[]      recvedBytes = null; // 网络数据缓存
     private object      recvLockObj = new object();
@@ -160,12 +160,14 @@ public class CarObject : MonoBehaviour
         {
             yield return new WaitForSeconds(interval);
             // 处理云台的旋转
-            if (rotateMoveDis != 0)
+            if (Mathf.Abs(rotateMoveDis) > float.Epsilon)
             {
                 // 转换到当前分辨率的距离
                 var moveDis = rotateMoveDis * 720.0f / Screen.height;
                 // 按移动360对应90度来计算最终位置
                 camMoveRotate = camMoveRotate + (int)(moveDis * 0.25f);
+                // 限制最大和最小值
+                camMoveRotate = Math.Clamp(camMoveRotate, -60, 60);
                 // 发送当前位置
                 SendCmdData("Rotate", camMoveRotate.ToString());
                 rotateMoveDis = 0;
@@ -240,11 +242,11 @@ public class CarObject : MonoBehaviour
                 }
                 byte[] data = Encoding.UTF8.GetBytes(Json.Encode(dstDic));
                 udpClient.Send(data, data.Length);
-                // Debug.Log($"Send message : {typeValue}");
+                // Debug.Log($"Send message : {typeName}|{typeValue}");
             }
             catch (Exception)
             {
-                Debug.Log($"Send message : {typeValue} failed");
+                Debug.Log($"Send message : {typeName}|{typeValue} failed");
             }
         }
     }
@@ -684,9 +686,7 @@ public class CarObject : MonoBehaviour
         var pointData = (eventData as PointerEventData);
         if (rotatePointId == pointData.pointerId)
         {
-            if (rotateMoveDis == 0)
-                lastRotatePos = pointData.position;
-            rotateMoveDis = (int)(pointData.position.x - lastRotatePos.x);
+            rotateMoveDis = pointData.position.x - lastRotatePos.x;
         }
     }
 
