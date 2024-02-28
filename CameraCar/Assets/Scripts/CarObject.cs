@@ -27,6 +27,7 @@ public class CarObject : MonoBehaviour
     private int         speedPointId = -1;
     private int         rotatePointId = -1;
     private int         sendDirValue = -1;  // 移动的方向值
+    private int         lastSendDir = -1;   // 上一次的移动缓存值
     private int         sendSpeedValue = 6; // 移动的速度值
     private Vector2     lastRotatePos = Vector2.zero;   // 云台上次滑动的位置
     private float       rotateMoveDis = 0;  // 云台上次滑动的距离
@@ -90,8 +91,6 @@ public class CarObject : MonoBehaviour
 
         // 启动连接判断定时器
         timerCoroutine = StartCoroutine(StartNetCheckTimer(0.1f));
-        // 启动云台旋转判断定时器
-        StartCoroutine(RotateCheckTimer(0.5f));
 
         // 初始不可用拍照功能
         SetCameraEnabled(false);
@@ -138,7 +137,11 @@ public class CarObject : MonoBehaviour
                     continue;
                 }
                 // 发送移动事件，同时作为心跳使用
-                SendCmdData("Move", sendDirValue.ToString() + "|" + sendSpeedValue.ToString());
+                if (sendDirValue != lastSendDir)
+                {
+                    SendCmdData("Move", sendDirValue.ToString() + "|" + sendSpeedValue.ToString());
+                    lastSendDir = sendDirValue;
+                }
 
                 // 判断是否需要获取电池的信息
                 if ((Time.realtimeSinceStartup - battleUpdateTime) > 10)
@@ -150,15 +153,7 @@ public class CarObject : MonoBehaviour
             // 检查提示文本是否需要超时关闭
             if (noticeText.gameObject.activeSelf && (Time.realtimeSinceStartup - noticeUpdateTime) > 5)
                 noticeText.gameObject.SetActive(false);
-        }
-    }
 
-    // 云台旋转定时器
-    IEnumerator RotateCheckTimer(float interval)
-    {
-        while (true)
-        {
-            yield return new WaitForSeconds(interval);
             // 处理云台的旋转
             if (Mathf.Abs(rotateMoveDis) > float.Epsilon)
             {
@@ -171,6 +166,8 @@ public class CarObject : MonoBehaviour
                 // 发送当前位置
                 SendCmdData("Rotate", camMoveRotate.ToString());
                 rotateMoveDis = 0;
+                // 界面显示当前的旋转方向
+                ShowNoticeText("Camera rotate to " + camMoveRotate.ToString());
             }
         }
     }
@@ -271,6 +268,8 @@ public class CarObject : MonoBehaviour
             OnRotateCenter();
             // 设置灯光状态
             SetLightOn(lightState);
+            // 重置发送的移动方向缓存
+            lastSendDir = -1;
         }
         else if (typeCmd == "Battery")
         {
