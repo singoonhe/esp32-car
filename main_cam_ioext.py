@@ -6,7 +6,7 @@ import sg90
 from led import blink_led
 from wifi import wifi_network
 from data import network_data
-from wheel_io import wheel_timer
+from wheel_ioext import wheel_timer
 # import cam_config as cc
 
 # 网络wifi对象

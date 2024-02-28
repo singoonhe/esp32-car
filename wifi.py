@@ -23,11 +23,16 @@ class wifi_network:
         self.target_link_call = None
         # 是否需要发送心跳数据
         self.cmd_heart = sta_info.get('cmd_heart') == True
-        # 使用指定引脚的电平来判断网络模式
-        p2 = Pin(sta_info['ap_pin'], Pin.IN, Pin.PULL_UP)
-        if p2.value() == 0:
-            self.init_wifi(sta_info, False)
+        # 是否支持非AP模式
+        if 'ap_pin' in sta_info:
+            # 使用指定引脚的电平来判断网络模式
+            p2 = Pin(sta_info['ap_pin'], Pin.IN, Pin.PULL_UP)
+            if p2.value() == 0:
+                self.init_wifi(sta_info, False)
+            else:
+                self.init_wifi(sta_info, True)
         else:
+            # 默认开启AP模式
             self.init_wifi(sta_info, True)
         
     # 初始化网络
