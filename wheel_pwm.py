@@ -3,7 +3,7 @@ from machine import Pin, PWM, Timer
 
 # 最小和大的转速值(每秒), 由实际测试出
 MIN_SPEED_COUNT = const(80)
-MAX_SPEED_COUNT = const(150)
+MAX_SPEED_COUNT = const(200)
 # 空占值步进调节(每秒), 与定时器也有关
 DUTY_DIFF_STEP = const(100)
 # 最小的空占比及默认步进. (min + step * 9) < 1023
