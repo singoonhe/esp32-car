@@ -18,6 +18,7 @@ battery_update_mark = False
 # timer相关const数据定义
 LED_TIMERID = const(0)
 NET_TIMERID = const(2)
+SPEED_TIMERID = const(4)
 
 # 接收到自定义命令数据
 def ex_command_data(cmd_type, cmd_value):
@@ -65,14 +66,15 @@ def run_main():
     global car_led
     global car_adc
     # 指定引脚读取ADC
-    car_adc = adc_battery(1)
+    car_adc = adc_battery(0)
     # 添加led指示引脚, 并传入timer_id
     car_led = blink_led(7, LED_TIMERID)
     # 电机控制器, 指定控制电机的4个引脚。先左侧2电机，再右侧2电机
     # L298N使用2个PWM引脚来控制速度
-    car_wheel = wheel_pwm([2,3, 5,4], [10,8], 223, 1023)
+    # 使用2个引脚来检测速度
+    car_wheel = wheel_pwm((8,9, 5,4), (10,6), (2,3), SPEED_TIMERID)
     # 使用指定IO是否接低电平来控制使用非AP模式
-    wifi_info = {'ap_pin':13}
+    wifi_info = {'ap_pin':1}
     # 配置AP时的网络信息
     wifi_info['ap_name'] = 'CAR_HYX'
     wifi_info['ap_psd'] = 'HF123456'
