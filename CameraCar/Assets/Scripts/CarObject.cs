@@ -27,7 +27,6 @@ public class CarObject : MonoBehaviour
     private int         speedPointId = -1;
     private int         rotatePointId = -1;
     private int         sendDirValue = -1;  // 移动的方向值
-    private int         lastSendDir = -1;   // 上一次的移动缓存值
     private int         sendSpeedValue = 6; // 移动的速度值
     private Vector2     lastRotatePos = Vector2.zero;   // 云台上次滑动的位置
     private float       rotateMoveDis = 0;  // 云台上次滑动的距离
@@ -137,12 +136,7 @@ public class CarObject : MonoBehaviour
                     continue;
                 }
                 // 发送移动事件，同时作为心跳使用
-                if (sendDirValue != lastSendDir)
-                {
-                    SendCmdData("Move", sendDirValue.ToString() + "|" + sendSpeedValue.ToString());
-                    lastSendDir = sendDirValue;
-                }
-
+                SendCmdData("Move", sendDirValue.ToString() + "|" + sendSpeedValue.ToString());
                 // 判断是否需要获取电池的信息
                 if ((Time.realtimeSinceStartup - battleUpdateTime) > 10)
                 {
@@ -175,7 +169,7 @@ public class CarObject : MonoBehaviour
     // 设置Camera是否可用
     private void SetCameraEnabled(bool enabled)
     {
-        Debug.Log($"set camera to {enabled}");
+        // Debug.Log($"set camera to {enabled}");
         frameImg.gameObject.SetActive(enabled);
         photoObj.SetActive(enabled);
         rotateCenterObj.SetActive(enabled);
@@ -193,7 +187,7 @@ public class CarObject : MonoBehaviour
     // 设置电筒是否明亮
     private void SetLightOn(bool isOn)
     {
-        Debug.Log($"set light to {isOn}");
+        // Debug.Log($"set light to {isOn}");
         lightState = isOn;
         lightImg.color = isOn ? new Color(0.34f, 0.46f, 1.0f) : new Color(0.611f, 0.611f, 0.611f);
         // 发送命令
@@ -268,8 +262,6 @@ public class CarObject : MonoBehaviour
             OnRotateCenter();
             // 设置灯光状态
             SetLightOn(lightState);
-            // 重置发送的移动方向缓存
-            lastSendDir = -1;
         }
         else if (typeCmd == "Battery")
         {
