@@ -23,14 +23,14 @@ LED_TIMERID = const(0)
 NET_TIMERID = const(2)
 SPEED_TIMERID = const(4)
 # 障碍停止距离,cm
-CAR_STOP_DIS = const(10)
+CAR_STOP_DIS = const(15)
 
 # 获取当前障碍物的距离
 def get_front_distance():
     distance = 999
     try:
         distance = car_sensor.distance_cm()
-        print('Distance:', distance, 'cm')
+#         print('Distance:', distance, 'cm')
     except OSError as ex:
         print('ERROR getting distance:', ex)
     return distance
@@ -45,7 +45,7 @@ def ex_command_data(cmd_type, cmd_value):
             # 移动方向和速度
             move_dir = int(move_info[0])
             # 当前言有障碍，则停止移动
-            if move_dir != -1 and get_front_distance() < CAR_STOP_DIS:
+            if move_dir != -1 and (move_dir >= 315 or move_dir <= 225) and get_front_distance() < CAR_STOP_DIS:
                 move_dir = -1
             car_wheel.set_speed_dir(move_dir, int(move_info[1]))
             # 上传一次当前电量
