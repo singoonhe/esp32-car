@@ -3,7 +3,7 @@ from machine import Pin, PWM, Timer
 
 # 最小和大的转速值(每秒), 由实际测试出
 MIN_SPEED_COUNT = const(80)
-MAX_SPEED_COUNT = const(200)
+MAX_SPEED_COUNT = const(180)
 # 空占值步进调节(每秒), 与定时器也有关
 DUTY_DIFF_STEP = const(100)
 # 最小的空占比及默认步进. (min + step * 9) < 1023
@@ -32,6 +32,8 @@ class wheel_pwm:
             self.speed_counts.append(int(i * speed_count_step) + MIN_SPEED_COUNT)
         # 当前遥控器设置的速度值
         self.remote_speed = [0, 0]
+        # 速度缓存，避免重复设置
+        self.last_remote_s = [0, 0]
         # 初始化控制引脚
         for pin in pins:
             self.nor_pins.append(Pin(pin, Pin.OUT))
@@ -102,8 +104,10 @@ class wheel_pwm:
         # 设置电机的转动方向
         self.nor_pins[index * 2].value(value1)
         self.nor_pins[index * 2 + 1].value(value2)
-        # 设置电机的速度
-        self.pwm_pins[index].duty(self.speed_dutys[pwm_v])
+        # 设置电机的速度, 缓存判断避免多次设置
+        if self.last_remote_s[index] != pwm_v:
+            self.pwm_pins[index].duty(self.speed_dutys[pwm_v])
+            self.last_remote_s[index] = pwm_v
             
     # 定时检测当前速度值是否合理，并修正
     def check_count_speed(self, t):
@@ -121,7 +125,7 @@ class wheel_pwm:
             # 修正值存储起来下次继续使用
             self.speed_dutys[remote_speed] = fix_duty
             self.irq_counts[i] = 0
-#             print(count_s, count_diff, fix_duty)
+#             print(count_s, count_diff, fix_duty, remote_speed)
         
     # 测速中断事件
     def irq_handler(self, pin, i):
