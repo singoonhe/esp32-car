@@ -40,6 +40,8 @@ class wheel_timer:
         self.blink_interval = 0
         self.blink_time = 0
         self.blink_byte = LIGHT_OFF_VALUE
+        # 系统启动后先停止，避免自动重启后还在不停的移动
+        set_speed_dir(-1, 1)
             
     # 控制器是否准备好
     def is_ready(self):

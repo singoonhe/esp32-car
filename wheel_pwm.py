@@ -52,6 +52,8 @@ class wheel_pwm:
         # 开启定时车速调整
         self.check_timer = Timer(wheel_timer_id)
         self.timer_running = False
+        # 系统启动后先停止，避免自动重启后还在不停的移动
+        set_speed_dir(-1, 0)
         
             
     # 重置车轮的速度及方向
