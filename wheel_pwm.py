@@ -52,6 +52,8 @@ class wheel_pwm:
         # 开启定时车速调整
         self.check_timer = Timer(wheel_timer_id)
         self.timer_running = False
+        # 当前速度已测速次数，避免启动时duty过高
+        self.speed_irq_count = 0
         # 系统启动后先停止，避免自动重启后还在不停的移动
         set_speed_dir(-1, 0)
         
@@ -100,6 +102,8 @@ class wheel_pwm:
         # 设置双侧电机初始值
         for i in range(2):
             self.set_pin_values(i, value1, value2, self.remote_speed[i])
+            # 重置测速的次数
+            self.speed_irq_count = 0
         
     # 设置车轮的引脚状态
     def set_pin_values(self, index, value1, value2, pwm_v):
@@ -114,6 +118,11 @@ class wheel_pwm:
     # 定时检测当前速度值是否合理，并修正
     def check_count_speed(self, t):
         for i in range(2):
+            # 略过初始的前2次测速，刚启动时测速不准确
+            self.speed_irq_count += 1
+            if self.speed_irq_count < 3:
+                break
+            
             remote_speed = self.remote_speed[i]
             # 每秒转速
             count_s = COUNT_RATE * self.irq_counts[i]

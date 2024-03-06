@@ -152,6 +152,11 @@ class wifi_network:
             self.command_target = None
             self.target_link_call(False)
             print('clear command target because of time out')
+        
+        # 自动进入深度睡眠
+#         if self.command_target == None and self.network_check > 120:
+#             print('enter deepsleep')
+#             machine.deepsleep()
     
     ###########################Config#############################
     # 读取配置文件
