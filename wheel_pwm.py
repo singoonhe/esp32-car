@@ -2,13 +2,15 @@
 from machine import Pin, PWM, Timer
 
 # 最小和大的转速值(每秒), 由实际测试出
-MIN_SPEED_COUNT = const(80)
+MIN_SPEED_COUNT = const(40)
 MAX_SPEED_COUNT = const(180)
 # 空占值步进调节(每秒), 与定时器也有关
 DUTY_DIFF_STEP = const(100)
 # 最小的空占比及默认步进. (min + step * 9) < 1023
-DEFAULT_MIN_DUTY = const(258)
-DEFAULT_DUTY_STEP = const(85)
+DEFAULT_MIN_DUTY = const(141)
+DEFAULT_DUTY_STEP = const(98)
+# 最小启动值
+MIN_START_DUTY = const(250)
 # 定时器间隔及转速倍数
 TIMER_INTERVAL = const(200)
 COUNT_RATE = 1000 / TIMER_INTERVAL
@@ -55,12 +57,13 @@ class wheel_pwm:
         # 当前速度已测速次数，避免启动时duty过高
         self.speed_irq_count = 0
         # 系统启动后先停止，避免自动重启后还在不停的移动
-        set_speed_dir(-1, 0)
+        self.set_speed_dir(-1, 0)
         
             
     # 重置车轮的速度及方向
     def set_speed_dir(self, move_dir, speed):
         # 速度检测功能开关
+        from_static = False
         if move_dir == -1 and self.timer_running:
             # 停止测速功能
             self.check_timer.deinit()
@@ -72,6 +75,8 @@ class wheel_pwm:
             # 清空上次的测速值
             for i in range(2):
                 self.irq_counts[i] = 0
+            # 标记从静止中启动
+            from_static = True
         # 两边的速度值
         self.remote_speed[0] = 0
         self.remote_speed[1] = 0
@@ -101,19 +106,23 @@ class wheel_pwm:
             self.remote_speed[1] = max(0, min(int(move_dir / step_angle), speed))
         # 设置双侧电机初始值
         for i in range(2):
-            self.set_pin_values(i, value1, value2, self.remote_speed[i])
-            # 重置测速的次数
-            self.speed_irq_count = 0
+            self.set_pin_values(i, value1, value2, self.remote_speed[i], from_static)
         
     # 设置车轮的引脚状态
-    def set_pin_values(self, index, value1, value2, pwm_v):
+    def set_pin_values(self, index, value1, value2, pwm_v, from_static):
         # 设置电机的转动方向
         self.nor_pins[index * 2].value(value1)
         self.nor_pins[index * 2 + 1].value(value2)
         # 设置电机的速度, 缓存判断避免多次设置
         if self.last_remote_s[index] != pwm_v:
-            self.pwm_pins[index].duty(self.speed_dutys[pwm_v])
+            if from_static:
+                # 从静止启动时，给定启动空占比不能太低
+                self.pwm_pins[index].duty(max(self.speed_dutys[pwm_v], MIN_START_DUTY))
+            else:
+                self.pwm_pins[index].duty(self.speed_dutys[pwm_v])
             self.last_remote_s[index] = pwm_v
+            # 重置测速的次数
+            self.speed_irq_count = 0
             
     # 定时检测当前速度值是否合理，并修正
     def check_count_speed(self, t):
@@ -121,6 +130,12 @@ class wheel_pwm:
             # 略过初始的前2次测速，刚启动时测速不准确
             self.speed_irq_count += 1
             if self.speed_irq_count < 3:
+                # 置0，避免后一帧测速过大
+                # 同时重置以前的缓存速度，让最小速度只生效一次
+                for j in range(2):
+                    self.irq_counts[j] = 0
+                    cache_duty = self.speed_dutys[self.remote_speed[j]]
+                    self.pwm_pins[j].duty(cache_duty)
                 break
             
             remote_speed = self.remote_speed[i]
