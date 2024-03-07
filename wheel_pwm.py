@@ -68,7 +68,6 @@ class wheel_pwm:
     # 重置车轮的速度及方向
     def set_speed_dir(self, move_dir, speed):
         # 速度检测功能开关
-        from_static = False
         if move_dir == -1 and self.timer_running:
             # 停止测速功能
             self.check_timer.deinit()
@@ -80,8 +79,6 @@ class wheel_pwm:
             # 清空上次的测速值
             for i in range(2):
                 self.irq_counts[i] = 0
-            # 标记从静止中启动
-            from_static = True
         # 两边的速度值
         self.remote_speed[0] = 0
         self.remote_speed[1] = 0
@@ -92,14 +89,12 @@ class wheel_pwm:
             # 当前方向为0，停止移动
             self.remote_speed[0] = 0
             self.remote_speed[1] = 0
-            self.run_two_channel = True
         elif move_dir > 225 and move_dir < 315:
             # 左右一起倒车
             value1 = 0
             value2 = 1
             self.remote_speed[0] = speed
             self.remote_speed[1] = speed
-            self.run_two_channel = True
         else:
             value1 = 1
             value2 = 0
@@ -111,21 +106,21 @@ class wheel_pwm:
             # 设置左右轮的速度值(0~10)
             self.remote_speed[0] = max(0, min(int((180-move_dir) / step_angle), speed))
             self.remote_speed[1] = max(0, min(int(move_dir / step_angle), speed))
-            # 标记是单边还是双边运行
-            self.run_two_channel = (self.remote_speed[0] != 0 and self.remote_speed[1] != 0)
+        # 标记是单边还是双边运行
+        self.run_two_channel = (self.remote_speed[0] != 0 and self.remote_speed[1] != 0)
         # 设置双侧电机初始值
         for i in range(2):
-            self.set_pin_values(i, value1, value2, self.remote_speed[i], from_static)
+            self.set_pin_values(i, value1, value2, self.remote_speed[i])
         
     # 设置车轮的引脚状态
-    def set_pin_values(self, index, value1, value2, pwm_v, from_static):
+    def set_pin_values(self, index, value1, value2, pwm_v):
         # 设置电机的转动方向
         self.nor_pins[index * 2].value(value1)
         self.nor_pins[index * 2 + 1].value(value2)
         # 设置电机的速度, 缓存判断避免多次设置
         if self.last_remote_s[index] != pwm_v:
             duty_list = self.run_two_channel and self.speed_dutys or self.channel_dutys
-            if from_static:
+            if self.last_remote_s[index] == 0:
                 # 从静止启动时，给定启动空占比不能太低
                 self.pwm_pins[index].duty(max(duty_list[pwm_v], MIN_START_DUTY))
             else:
