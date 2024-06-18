@@ -92,8 +92,8 @@ def run_main():
     # L298N使用2个PWM引脚来控制速度
     # 使用2个引脚来检测速度
     car_wheel = wheel_pwm((8,9, 5,4), (10,6), (2,3), SPEED_TIMERID)
-    # 添加超声波测距功能
-    car_sensor = HCSR04(trigger_pin=7, echo_pin=13, echo_timeout_us=10000)
+    # 添加超声波测距功能（1cm each 29.1us，仅检测50cm范围内）
+    car_sensor = HCSR04(trigger_pin=7, echo_pin=13, echo_timeout_us=1500)
     # 使用指定IO是否接低电平来控制使用非AP模式
     wifi_info = {'ap_pin':1}
     # 配置AP时的网络信息
