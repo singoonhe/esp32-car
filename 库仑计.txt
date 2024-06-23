@@ -1,0 +1,33 @@
+const int currentSensorPin = A0; // 电流传感器连接的引脚
+const float sensitivity = 0.185; // ACS712 5A传感器的灵敏度为185 mV/A
+const float offsetVoltage = 2.5; // ACS712的中间电压（无电流时的输出电压）
+const int adcMaxValue = 1023; // ADC最大值（10位ADC）
+const float adcReferenceVoltage = 5.0; // ADC参考电压，单位：伏
+
+unsigned long previousTime = 0;
+float batteryCapacity_mAh = 2000.0; // 初始电池容量，单位：毫安时
+
+void setup() {
+  Serial.begin(9600);
+}
+
+void loop() {
+  unsigned long currentTime = millis();
+  unsigned long elapsedTime = currentTime - previousTime; // 计算时间差，单位：毫秒
+
+  int adcValue = analogRead(currentSensorPin);
+  float voltage = (adcValue * adcReferenceVoltage) / adcMaxValue;
+  float current_A = (voltage - offsetVoltage) / sensitivity; // 计算电流，单位：安培
+
+  float current_mA = current_A * 1000.0; // 转换为毫安
+  float current_mAh = (current_mA * elapsedTime) / 3600000.0; // 计算消耗的电量，单位：毫安时
+  batteryCapacity_mAh -= current_mAh; // 更新剩余电量
+
+  previousTime = currentTime;
+
+  Serial.print("Remaining Capacity: ");
+  Serial.print(batteryCapacity_mAh);
+  Serial.println(" mAh");
+
+  delay(1000); // 每秒更新一次
+}

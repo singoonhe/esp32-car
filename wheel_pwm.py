@@ -2,13 +2,15 @@
 from machine import Pin, PWM, Timer
 
 # 最小和大的转速值(每秒), 由实际测试出
-MIN_SPEED_COUNT = const(80)
+MIN_SPEED_COUNT = const(40)
 MAX_SPEED_COUNT = const(180)
 # 空占值步进调节(每秒), 与定时器也有关
 DUTY_DIFF_STEP = const(100)
 # 最小的空占比及默认步进. (min + step * 9) < 1023
-DEFAULT_MIN_DUTY = const(258)
-DEFAULT_DUTY_STEP = const(85)
+DEFAULT_MIN_DUTY = const(141)
+DEFAULT_DUTY_STEP = const(98)
+# 最小启动值
+MIN_START_DUTY = const(250)
 # 定时器间隔及转速倍数
 TIMER_INTERVAL = const(200)
 COUNT_RATE = 1000 / TIMER_INTERVAL
@@ -23,8 +25,13 @@ class wheel_pwm:
         self.pwm_pins = []
         # 初始化各速度下的空占比
         self.speed_dutys = [0]
+        self.channel_dutys = [0]
         for i in range(10):
             self.speed_dutys.append(min(1023, DEFAULT_MIN_DUTY + DEFAULT_DUTY_STEP * i))
+            # 单边运行时的速度，往往需要更大的空占比
+            self.channel_dutys.append(min(1023, DEFAULT_MIN_DUTY * 2 + DEFAULT_DUTY_STEP * i))
+        # 当前是单边还是双边运行
+        self.run_two_channel = True
         # 初始化各速度下的期望转速值
         self.speed_counts = [0]
         speed_count_step = (MAX_SPEED_COUNT - MIN_SPEED_COUNT) * 0.1
@@ -52,6 +59,10 @@ class wheel_pwm:
         # 开启定时车速调整
         self.check_timer = Timer(wheel_timer_id)
         self.timer_running = False
+        # 当前速度已测速次数，避免启动时duty过高
+        self.speed_irq_count = 0
+        # 系统启动后先停止，避免自动重启后还在不停的移动
+        self.set_speed_dir(-1, 0)
         
             
     # 重置车轮的速度及方向
@@ -95,6 +106,8 @@ class wheel_pwm:
             # 设置左右轮的速度值(0~10)
             self.remote_speed[0] = max(0, min(int((180-move_dir) / step_angle), speed))
             self.remote_speed[1] = max(0, min(int(move_dir / step_angle), speed))
+        # 标记是单边还是双边运行
+        self.run_two_channel = (self.remote_speed[0] != 0 and self.remote_speed[1] != 0)
         # 设置双侧电机初始值
         for i in range(2):
             self.set_pin_values(i, value1, value2, self.remote_speed[i])
@@ -106,12 +119,32 @@ class wheel_pwm:
         self.nor_pins[index * 2 + 1].value(value2)
         # 设置电机的速度, 缓存判断避免多次设置
         if self.last_remote_s[index] != pwm_v:
-            self.pwm_pins[index].duty(self.speed_dutys[pwm_v])
+            duty_list = self.run_two_channel and self.speed_dutys or self.channel_dutys
+            if self.last_remote_s[index] == 0:
+                # 从静止启动时，给定启动空占比不能太低
+                self.pwm_pins[index].duty(max(duty_list[pwm_v], MIN_START_DUTY))
+            else:
+                self.pwm_pins[index].duty(duty_list[pwm_v])
             self.last_remote_s[index] = pwm_v
+            # 重置测速的次数
+            self.speed_irq_count = 0
             
     # 定时检测当前速度值是否合理，并修正
     def check_count_speed(self, t):
+        # 判断当前应该使用双边还是单边速度
+        duty_list = self.run_two_channel and self.speed_dutys or self.channel_dutys
         for i in range(2):
+            # 略过初始的前2次测速，刚启动时测速不准确
+            self.speed_irq_count += 1
+            if self.speed_irq_count < 3:
+                # 置0，避免后一帧测速过大
+                # 同时重置以前的缓存速度，让最小速度只生效一次
+                for j in range(2):
+                    self.irq_counts[j] = 0
+                    cache_duty = duty_list[self.remote_speed[j]]
+                    self.pwm_pins[j].duty(cache_duty)
+                break
+            
             remote_speed = self.remote_speed[i]
             # 每秒转速
             count_s = COUNT_RATE * self.irq_counts[i]
@@ -119,11 +152,14 @@ class wheel_pwm:
             count_diff = self.speed_counts[remote_speed] - count_s
             # 电机空占比修正
             fix_ratio = max(-1, min(1, count_diff / DUTY_DIFF_STEP))
-            fix_duty = self.speed_dutys[remote_speed] + int(fix_ratio * 50)
-            fix_duty = max(0, min(fix_duty, 1023))
+            fix_duty = duty_list[remote_speed] + int(fix_ratio * 50)
+            # 下一级的占空比
+            next_duty = duty_list[min(10, remote_speed + 1)]
+            fix_duty = max(0, min(fix_duty, next_duty))
+            # 修正占比不能超过下一级占比，避免占比陡增
             self.pwm_pins[i].duty(fix_duty)
             # 修正值存储起来下次继续使用
-            self.speed_dutys[remote_speed] = fix_duty
+            duty_list[remote_speed] = fix_duty
             self.irq_counts[i] = 0
 #             print(count_s, count_diff, fix_duty, remote_speed)
         

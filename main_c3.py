@@ -3,6 +3,7 @@ from led import blink_led
 from wifi import wifi_network
 from wheel_pwm import wheel_pwm
 from battery import adc_battery
+from hcsr04 import HCSR04
 
 # 网络wifi对象
 network_wifi = None
@@ -14,11 +15,25 @@ car_led = None
 car_adc = None
 # 更新电量标记
 battery_update_mark = False
+# 超声波测距
+car_sensor = None
 
 # timer相关const数据定义
 LED_TIMERID = const(0)
 NET_TIMERID = const(2)
 SPEED_TIMERID = const(4)
+# 障碍停止距离,cm
+CAR_STOP_DIS = const(15)
+
+# 获取当前障碍物的距离
+def get_front_distance():
+    distance = 999
+    try:
+        distance = car_sensor.distance_cm()
+#         print('Distance:', distance, 'cm')
+    except OSError as ex:
+        print('ERROR getting distance:', ex)
+    return distance
 
 # 接收到自定义命令数据
 def ex_command_data(cmd_type, cmd_value):
@@ -29,6 +44,9 @@ def ex_command_data(cmd_type, cmd_value):
         if len(move_info) >= 2:
             # 移动方向和速度
             move_dir = int(move_info[0])
+            # 当前言有障碍，则停止移动
+            if move_dir != -1 and (move_dir >= 315 or move_dir <= 225) and get_front_distance() < CAR_STOP_DIS:
+                move_dir = -1
             car_wheel.set_speed_dir(move_dir, int(move_info[1]))
             # 上传一次当前电量
             if battery_update_mark and move_dir == -1:
@@ -65,14 +83,17 @@ def run_main():
     global network_wifi
     global car_led
     global car_adc
+    global car_sensor
     # 指定引脚读取ADC
     car_adc = adc_battery(0)
     # 添加led指示引脚, 并传入timer_id
-    car_led = blink_led(7, LED_TIMERID)
+    car_led = blink_led(11, LED_TIMERID)
     # 电机控制器, 指定控制电机的4个引脚。先左侧2电机，再右侧2电机
     # L298N使用2个PWM引脚来控制速度
     # 使用2个引脚来检测速度
     car_wheel = wheel_pwm((8,9, 5,4), (10,6), (2,3), SPEED_TIMERID)
+    # 添加超声波测距功能（1cm each 29.1us，仅检测50cm范围内）
+    car_sensor = HCSR04(trigger_pin=7, echo_pin=13, echo_timeout_us=1500)
     # 使用指定IO是否接低电平来控制使用非AP模式
     wifi_info = {'ap_pin':1}
     # 配置AP时的网络信息
