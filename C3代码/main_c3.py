@@ -1,7 +1,6 @@
 # ESP32-C3独立控制小车
-from led import blink_led
 from wifi import wifi_network
-from wheel_pwm import wheel_pwm
+from wheel_iopwm import wheel_iopwm
 from battery import adc_battery
 from hcsr04 import HCSR04
 
@@ -9,8 +8,6 @@ from hcsr04 import HCSR04
 network_wifi = None
 # 车轮控制对象
 car_wheel = None
-# led提示灯
-car_led = None
 # ADC
 car_adc = None
 # 更新电量标记
@@ -30,8 +27,9 @@ CAR_STOP_DIS = const(15)
 def get_front_distance(isFront):
     distance = 999
     try:
+        car_sensor = car_sensor1 if isFront else car_sensor2
         distance = car_sensor.distance_cm()
-#         print('Distance:', distance, 'cm')
+#         print(f'{num}Distance:', distance, 'cm')
     except OSError as ex:
         print('ERROR getting distance:', ex)
     return distance
@@ -64,45 +62,37 @@ def ex_command_data(cmd_type, cmd_value):
 def wifi_target_link_call(linked):
     if linked:
         # 连接成功常亮
-        car_led.set_light(True)
+        car_wheel.set_light(True)
     else:
-        # 断开连接或等待连接，闪烁效果
-        car_led.set_blink(0.5)
         # 车轮停止转动
         car_wheel.set_speed_dir(-1, 1)
+        car_wheel.set_light(False)
 
 # 系统中断回调方法():
 def sys_interrupt_call():
     # 车轮停止转动
     car_wheel.set_speed_dir(-1, 1)
-    # 常灭
-    car_led.set_light(False)
+    car_wheel.set_light(False)
 
 # 入口方法
 def run_main():
     global car_wheel
     global network_wifi
-    global car_led
     global car_adc
-    global car_sensor
+    global car_sensor1
+    global car_sensor2
     # 指定引脚读取ADC
     car_adc = adc_battery(0)
-    # 添加led指示引脚, 并传入timer_id
-    car_led = blink_led(11, LED_TIMERID)
     # 电机控制器, 指定控制电机的4个引脚。先左侧2电机，再右侧2电机
     # L298N使用2个PWM引脚来控制速度
     # 使用2个引脚来检测速度
-    car_wheel = wheel_pwm((8,9, 5,4), (10,6), (2,3), SPEED_TIMERID)
+    car_wheel = wheel_iopwm((8,9, 5,4), (10,6), (2,3), SPEED_TIMERID)
     # 添加超声波测距功能（1cm each 29.1us，仅检测50cm范围内）
-    car_sensor = HCSR04(trigger_pin=7, echo_pin=13, echo_timeout_us=1500)
-    # 使用指定IO是否接低电平来控制使用非AP模式
-    wifi_info = {'ap_pin':1}
+    car_sensor1 = HCSR04(trigger_pin=5, echo_pin=4, echo_timeout_us=1500)
+    car_sensor2 = HCSR04(trigger_pin=8, echo_pin=9, echo_timeout_us=1500)
     # 配置AP时的网络信息
     wifi_info['ap_name'] = 'CAR_HYX'
     wifi_info['ap_psd'] = 'HF123456'
-    # 配置局域网下的网络信息
-    wifi_info['ssid'] = 'HUAWEI-HF'
-    wifi_info['psd'] = 'HF123456'
     # 开启心跳功能
     wifi_info['cmd_heart'] = True
     # 初始化网络
