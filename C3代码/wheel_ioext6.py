@@ -34,13 +34,20 @@ class wheel_ioext6:
     # 设置指示灯的状态
     #value:灯控制值，0或1
     def set_led_value(value):
-        cur_byte = self.last_byte
-        if value == 0:
-            cur_byte &= ~(1 << 4)
-        elif value == 1:
-            cur_byte |= (1 << 4)
-        # 设置当前byte值
-        self.send_byte_i2c(cur_byte)
+        # 控制第5位bit的值
+        set_bit_value(4, value)
+
+    # 控制指示灯改变状态
+    def turn_led_value():
+        # 读取第5位bit的值
+        cur_value = (self.last_byte >> 4) & 1
+        set_led_value(cur_value == 0 and 1 or 0)
+
+    # 设置筒灯的状态
+    #value:灯控制值，0或1
+    def set_lit_value(value):
+        # 控制第6位bit的值
+        set_bit_value(5, value)
     
     # 发送当前的i2c数据
     def send_byte_i2c(cur_byte):
@@ -51,5 +58,11 @@ class wheel_ioext6:
             # print('wheel_timer: %d' % i2c_byte)
 
     # 设置某位的状态
-    def set_byte():
-        pass
+    def set_bit_value(bit, value):
+        cur_byte = self.last_byte
+        if value == 0:
+            cur_byte &= ~(1 << bit)
+        elif value == 1:
+            cur_byte |= (1 << bit)
+        # 设置当前byte值
+        self.send_byte_i2c(cur_byte)
