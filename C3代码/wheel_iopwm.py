@@ -1,52 +1,38 @@
 #车轮控制类
 import time
-from machine import Timer, Pin, SoftI2C
+from machine import Timer, Pin, PWM, SoftI2C
+from wheel_speed import wheel_speed
 
-# 模拟当前的总频值
-PWM_FRAME_COUNT = 10
+# 最小和大的转速值(每秒), 由实际测试出
+MIN_SPEED_COUNT = const(40)
+MAX_SPEED_COUNT = const(180)
+# 定时器间隔及转速倍数
+TIMER_INTERVAL = const(200)
+COUNT_RATE = 1000 / TIMER_INTERVAL
+
 # 闪烁引脚值定义
 LIGHT_ON_VALUE = const(0b00000100)
 LIGHT_OFF_VALUE = const(0b00000000)
 
 class wheel_iopwm:
     # 初始化方法
-    def __init__(self, scl, sda, time_id):
-        # 初始化i2c
-        self.i2c = SoftI2C(scl=Pin(scl), sda=Pin(sda), freq=10000)
-        i2c_devices = self.i2c.scan()
-        # 最终输出值
-        self.write_value = 0
-        self.write_buff = bytearray(1)
+    # pwms: 需要的2个PWM引脚列表，前1个代表左边电机，后1个代表右边电机
+    # irq_pins: 需要的2个测速引脚，前1个代表左边电机，后1个代表右边电机
+    def __init__(self, scl, sda, i2c_addr, pwms, irq_pins, wheel_timer_id):
         # 当前的占空值
         self.pwm_left = 0
         self.pwm_right = 0
-        # pwm当前值
-        self.cur_pwm_cnt = 0
-        # 车轮是否向前
-        self.move_front = True
-        # 上一次发送的i2c值，避免重复发送
-        self.last_byte = 0x00
-        # 开启车轮改变定时器
-        self.i2c_addr = None
-        if len(i2c_devices) > 0:
-            self.i2c_addr = i2c_devices[0]
-            print('use i2c addr ' + hex(self.i2c_addr))
-            wheel_timer = Timer(time_id)
-            # 很小的定时器，方便模拟PWM
-            wheel_timer.init(period=5, mode=Timer.PERIODIC, callback=self.wheel_timer_callback)
-        else:
-            print('cannot find i2c device')
+        # 开启定时车速调整
+        self.check_timer = Timer(wheel_timer_id)
+        self.check_timer.init(period=TIMER_INTERVAL, mode=Timer.PERIODIC, callback=self.check_count_speed)
+        self.timer_running = False
         # 闪烁引脚间隔时间
         self.blink_interval = 0
         self.blink_time = 0
         self.blink_byte = LIGHT_OFF_VALUE
         # 系统启动后先停止，避免自动重启后还在不停的移动
         self.set_speed_dir(-1, 1)
-            
-    # 控制器是否准备好
-    def is_ready(self):
-        return self.i2c_addr != None
-            
+                        
     # 重置车轮的速度及方向
     def set_speed_dir(self, move_dir, speed):
         if move_dir == -1:
@@ -107,3 +93,17 @@ class wheel_iopwm:
         except KeyboardInterrupt:
             pass
     
+    # 测速中断事件
+    def irq_handler(self, pin, i):
+        cur_value = pin.value()
+        if self.irq_values[i] != cur_value:
+            self.irq_counts[i] += 1
+            self.irq_values[i] = cur_value
+            
+    # 左轮测速中断事件
+    def irq_handler_l(self, pin):
+        self.irq_handler(pin, 0)
+        
+    # 右轮测速中断事件
+    def irq_handler_r(self, pin):
+        self.irq_handler(pin, 1)
