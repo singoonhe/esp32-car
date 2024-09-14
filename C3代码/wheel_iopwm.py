@@ -12,6 +12,8 @@ MAX_LEVEL = const(5)
 # 定时器间隔及转速倍数
 TIMER_INTERVAL = const(200)
 COUNT_RATE = 1000 / TIMER_INTERVAL
+# pwm的步进值，TIMER_INTERVAL频率
+PWM_TIMER_STEP = 1023 / MAX_SPEED_COUNT
 
 class wheel_iopwm:
     # 初始化方法
@@ -21,21 +23,20 @@ class wheel_iopwm:
         # 初始化io扩展器
         self.ioext = wheel_ioext6(scl, sda, i2c_addr)
         # 初始化左右测速器
-        pwm_rate = 1023/MAX_SPEED_COUNT
         if len(irq_pins) >= 2 and len(pwms) >= 2::
-            self.speedl = wheel_speed(pwms[0], irq_pins[0], COUNT_RATE, pwm_rate)
-            self.speedr = wheel_speed(pwms[1], irq_pins[1], COUNT_RATE, pwm_rate)
+            self.speedl = wheel_speed(pwms[0], irq_pins[0], COUNT_RATE, PWM_TIMER_STEP)
+            self.speedr = wheel_speed(pwms[1], irq_pins[1], COUNT_RATE, PWM_TIMER_STEP)
         else:
             print('ERROR: need two irq pins and two pwm pins')
         # 当前led初始处于闪烁状态
         self.led_blink = True
-        # 当前车辆是否处于运转状态
-        self.is_car_move = False
+        # 当前车辆是否处于运转状态-1/0/1
+        self.car_move_dir = 0
         # 开启定时车速调整
         self.check_timer = Timer(wheel_timer_id)
         self.check_timer.init(period=TIMER_INTERVAL, mode=Timer.PERIODIC, callback=self.wheel_update)
         # 系统启动后先停止，避免自动重启后还在不停的移动
-        self.ioext.set_motors_state(0, 0)
+        self.ioext.set_motors_state(self.car_move_dir)
         # 每个档位的速度递增值
         self.speed_incr_delta = (MAX_SPEED_COUNT - MIN_SPEED_COUNT) / MAX_LEVEL
                         
@@ -43,19 +44,17 @@ class wheel_iopwm:
     def set_speed_dir(self, move_dir, level):
         if move_dir == -1:
             # 当前方向为0，停止移动
-            self.is_car_move = False
-            self.ioext.set_motors_state(0, 0)
+            self.car_move_dir = 0
             self.speedl.set_target_speed(0)
             self.speedr.set_target_speed(0)
         elif move_dir > 225 and move_dir < 315:
             # 左右一起倒车, 速度减半
-            self.is_car_move = True
-            self.ioext.set_motors_state(-1, -1)
+            self.car_move_dir = -1
             target_speed = convert_level_speed(int(level * 0.5))
             self.speedl.set_target_speed(target_speed)
             self.speedr.set_target_speed(target_speed)
         else:
-            self.ioext.set_motors_state(1, 1)
+            self.car_move_dir = 1
             # 转换方向到-45~225之间
             if move_dir >= 315:
                 move_dir -= 360
@@ -67,6 +66,8 @@ class wheel_iopwm:
             self.speedr.set_target_speed(convert_level_speed(right_level))
             left_level = max(0, min(int((180-move_dir) / step_angle), level))
             self.speedl.set_target_speed(convert_level_speed(left_level))
+        # 控制电机的开启
+        self.ioext.set_motors_state(self.car_move_dir)
     
     # 设置led指示灯是否已连接
     def set_led_connected(is_connnect):
@@ -87,7 +88,7 @@ class wheel_iopwm:
         if self.led_blink:
             self.ioext.turn_led_value()
         # 如车辆移动，不断调整空占比
-        if self.is_car_move:
+        if self.car_move_dir != 0:
             self.speedl.update_pwm()
             self.speedr.update_pwm()
 

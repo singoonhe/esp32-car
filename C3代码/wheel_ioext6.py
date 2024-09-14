@@ -13,21 +13,16 @@ class wheel_ioext6:
         self.write_buff = bytearray(1)
 
     # 设置双电机的状态
-    # state_l:旋转状态，0(停止)、1(正转)、-1(反转)
-    def set_motors_state(state_l, state_r):
+    # state:旋转状态，0(停止)、1(正转)、-1(反转)
+    def set_motors_state(state):
         cur_byte = self.last_byte
         # 先清除对应位的值
         cur_byte = cur_byte & 0b00001111
-        # 设置左电机的状态
-        if state_l == 1:
-            cur_byte = cur_byte|0b01000000
-        elif state_l == -1:
-            cur_byte = cur_byte|0b10000000
-        # 设置右电机的状态
-        if state_r == 1:
-            cur_byte = cur_byte|0b00010000
-        elif state_r == -1:
-            cur_byte = cur_byte|0b00100000
+        # 设置左电机、右电机的状态
+        if state == 1:
+            cur_byte = cur_byte|0b01010000
+        elif state == -1:
+            cur_byte = cur_byte|0b10100000
         # 设置当前byte值
         self.send_byte_i2c(cur_byte)
 
