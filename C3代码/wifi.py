@@ -8,6 +8,18 @@ from socket import *
 from machine import Timer,Pin
 from data import network_data
 
+# sta_info参数详解:
+    # cmd_heart: bool型，是否开启定时心跳功能。默认不启用
+    # sleep_time: int型，未连接时自动睡眠秒数。默认为0表示不启用
+    # ap_state: bool型，是否开启ap模式。默认开启
+    # ap_name: string型，ap模式下wifi名
+    # ap_psd: string型，ap模式下wifi密码
+    # ssid: string型，非ap模式下连接的wifi名
+    # psd: string型，非ap模式下连接的wifi密码
+    # heart_call: 心跳回调事件，仅开启心跳功能时有效. void ()
+    # target_link_call: 设备连接状态变化回调，void (bool)
+    # ex_cmd_call: 车辆控制事件回调，void (string, string)
+    # interrupt_call: 程序中断事件回调
 class wifi_network:
     # 初始化方法
     # sta_info:连接网络的信息列表
@@ -19,18 +31,18 @@ class wifi_network:
         self.network_check = 0
         # 指定的数据接收者
         self.command_target = None
-        # Target变化回调方法
-        self.target_link_call = None
+        # 自动睡眠倒计时秒数
+        self.sleep_time = sta_info.get('sleep_time', 0)
+        # 回调事件
+        self.target_link_call = sta_info.get('target_link_call', None)
+        self.heart_call = sta_info.get('heart_call', None)
+        self.ex_cmd_call = sta_info.get('ex_cmd_call', None)
+        self.interrupt_call = sta_info.get('interrupt_call', None)
         # 是否需要发送心跳数据
         self.cmd_heart = sta_info.get('cmd_heart') == True
         # 是否支持非AP模式
-        if 'ap_pin' in sta_info:
-            # 使用指定引脚的电平来判断网络模式
-            p2 = Pin(sta_info['ap_pin'], Pin.IN, Pin.PULL_UP)
-            if p2.value() == 0:
-                self.init_wifi(sta_info, False)
-            else:
-                self.init_wifi(sta_info, True)
+        if 'ap_state' in sta_info and not sta_info['ap_state']:
+            self.init_wifi(sta_info, False)
         else:
             # 默认开启AP模式
             self.init_wifi(sta_info, True)
@@ -58,20 +70,16 @@ class wifi_network:
                 ap_if.active(True)
                 self.ip = ap_if.ifconfig()[0]
             except:
-                print("Network ap failed, please reset system")
+                print("Network start ap failed, please reset system")
             
     # 开始接受网络连接
     # out_timer_id:超时检测的timer_id, ESP32和ESP32-C3存在区别
-    # ex_cmd_call：接收控制事件的回调
-    # target_link_call:连接的target状态变化回调
-    # interrupt_call:调试期主动中断回调
-    def start_socket(self, out_timer_id, target_link_call, ex_cmd_call, interrupt_call):
+    def start_socket(self, out_timer_id):
         if len(self.ip) < 8:
             print('network init failed')
             return
         
         print("current ip : " + self.ip)
-        self.target_link_call = target_link_call
         # 开启非阻塞UDP
         self.udp_socket = socket(AF_INET, SOCK_DGRAM)
         self.udp_socket.bind((self.ip, 7890))
@@ -82,21 +90,23 @@ class wifi_network:
         # 循环接收数据
         try:
             # 初始调用target未连接
-            self.target_link_call(False)
+            if self.target_link_call is not None:
+                self.target_link_call(False)
             while True:
                 try:
                     data, addr=self.udp_socket.recvfrom(1024)
                     # print('received:',data,'from',addr)
-                    self.recv_data(data, addr, ex_cmd_call)
+                    self.recv_data(data, addr)
                 except OSError:
                     # 没有数据包可用了
                     pass
         except KeyboardInterrupt:
             print('system interrupt')
-            interrupt_call()
+            if self.interrupt_call is not None:
+                self.interrupt_call(False)
 
     # 接收到命令数据
-    def recv_data(self, data, addr, ex_cmd_call):
+    def recv_data(self, data, addr):
 #         print('recv dat length: %d' % len(data))
         command_data = network_data.unpack(data)
         if command_data:
@@ -110,9 +120,9 @@ class wifi_network:
                 self.command_target = None
                 self.target_link_call(False)
                 print('clear command target by logout')
-            else:
+            elif self.ex_cmd_call:
                 # 调用外部处理方法
-                ex_cmd_call(command_data['Type'], command_data.get('Value', None))
+                self.ex_cmd_call(command_data['Type'], command_data.get('Value', None))
         
     # 发送命令数据
     def send_command_data(self, cmd_type, cmd_value=None):
@@ -146,17 +156,20 @@ class wifi_network:
         # 是否发送心跳，避免断开连接
         if self.cmd_heart:
             self.send_command_data('Heart')
+        # 定时外部调用
+        if self.heart_call:
+            self.heart_call()
+
         self.network_check += 1
         # print('self.network_check: %d' % self.network_check)
-        if self.command_target != None and self.network_check > 4:
+        if self.command_target != None and self.network_check >= 4:
             self.command_target = None
             self.target_link_call(False)
             print('clear command target because of time out')
-        
-        # 自动进入深度睡眠
-#         if self.command_target == None and self.network_check > 120:
-#             print('enter deepsleep')
-#             machine.deepsleep()
+        elif self.command_target == None and self.sleep_time > 0 and self.network_check > self.sleep_time:
+            # 超时自动进入深度睡眠
+            print('enter deepsleep after %d seconds' % self.sleep_time)
+            machine.deepsleep()
     
     ###########################Config#############################
     # 读取配置文件

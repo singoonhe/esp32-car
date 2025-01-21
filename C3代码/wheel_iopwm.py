@@ -23,7 +23,7 @@ class wheel_iopwm:
         # 初始化io扩展器
         self.ioext = wheel_ioext6(scl, sda, i2c_addr)
         # 初始化左右测速器
-        if len(irq_pins) >= 2 and len(pwms) >= 2::
+        if len(irq_pins) >= 2 and len(pwms) >= 2:
             self.speedl = wheel_speed(pwms[0], irq_pins[0], COUNT_RATE, PWM_TIMER_STEP)
             self.speedr = wheel_speed(pwms[1], irq_pins[1], COUNT_RATE, PWM_TIMER_STEP)
         else:

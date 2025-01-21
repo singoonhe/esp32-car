@@ -1,0 +1,13 @@
+ADC: IO0
+舵机1: IO13, IO8
+PWM: IO10,IO6
+IO扩展: SCL/IO1, SDA/IO12
+测速： IO2, IO3
+超声波: IO5+IO4
+IO9空余
+
+IO扩展定义：
+电机1：0+1
+电机2：2+3
+LED: 4
+灯光: 5

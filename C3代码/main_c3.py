@@ -1,38 +1,42 @@
 # ESP32-C3独立控制小车
 from wifi import wifi_network
-from wheel_iopwm import wheel_iopwm
 from battery import adc_battery
 from hcsr04 import HCSR04
+from tap_sg90 import tap_sg90
+from wheel_ioextpwm import wheel_ioextpwm
 
 # 网络wifi对象
 network_wifi = None
 # 车轮控制对象
 car_wheel = None
+# 舵机控制对象
+car_sg90 = None
 # ADC
 car_adc = None
 # 更新电量标记
 battery_update_mark = False
 # 超声波测距
 car_sensor1 = None
-car_sensor2 = None
 
 # timer相关const数据定义
-LED_TIMERID = const(0)
-NET_TIMERID = const(2)
-SPEED_TIMERID = const(4)
+NET_TIMERID = const(0)
 # 障碍停止距离,cm
-CAR_STOP_DIS = const(15)
+CAR_STOP_DIS = const(10)
 
 # 获取当前障碍物的距离
 def get_front_distance(isFront):
     distance = 999
     try:
-        car_sensor = car_sensor1 if isFront else car_sensor2
-        distance = car_sensor.distance_cm()
+        distance = car_sensor1.distance_cm()
 #         print(f'{num}Distance:', distance, 'cm')
     except OSError as ex:
         print('ERROR getting distance:', ex)
     return distance
+
+# 心跳定时回调
+def wifi_heart_call():
+    # 检查sg90是否需要停止
+    car_sg90.stop()
 
 # 接收到自定义命令数据
 def ex_command_data(cmd_type, cmd_value):
@@ -57,48 +61,61 @@ def ex_command_data(cmd_type, cmd_value):
         # 标记需要回传电量值
         # 仅电机不转动时才回传电压，避免电量波动
         battery_update_mark = True
+    elif cmd_type == 'Light':
+        # 开关大灯
+        car_wheel.set_lit_value(cmd_value == "On" and 1 or 0)
         
 # 网络target变化回调
 def wifi_target_link_call(linked):
     if linked:
         # 连接成功常亮
-        car_wheel.set_light(True)
+        car_wheel.set_led_connected(True)
     else:
         # 车轮停止转动
         car_wheel.set_speed_dir(-1, 1)
-        car_wheel.set_light(False)
+        car_wheel.set_led_connected(False)
 
 # 系统中断回调方法():
 def sys_interrupt_call():
     # 车轮停止转动
     car_wheel.set_speed_dir(-1, 1)
-    car_wheel.set_light(False)
+    car_wheel.set_led_value(0)
 
 # 入口方法
 def run_main():
     global car_wheel
     global network_wifi
     global car_adc
+    global car_sg90
     global car_sensor1
-    global car_sensor2
     # 指定引脚读取ADC
     car_adc = adc_battery(0)
-    # 电机控制器, 指定控制电机的4个引脚。先左侧2电机，再右侧2电机
-    # L298N使用2个PWM引脚来控制速度
-    # 使用2个引脚来检测速度
-    car_wheel = wheel_iopwm((8,9, 5,4), (10,6), (2,3), SPEED_TIMERID)
+    # 指定舵机控制对象
+    car_sg90 = tap_sg90(13, 8, 1)
+    # 使用io扩展模块，传入i2c引脚及地址、pwm的2个引脚
+    car_wheel = wheel_ioextpwm(1, 12, 0x27, 10, 6)
     # 添加超声波测距功能（1cm each 29.1us，仅检测50cm范围内）
     car_sensor1 = HCSR04(trigger_pin=5, echo_pin=4, echo_timeout_us=1500)
-    car_sensor2 = HCSR04(trigger_pin=8, echo_pin=9, echo_timeout_us=1500)
     # 配置AP时的网络信息
+    wifi_info = {}
     wifi_info['ap_name'] = 'CAR_HYX'
     wifi_info['ap_psd'] = 'HF123456'
     # 开启心跳功能
     wifi_info['cmd_heart'] = True
+    # 120s未连接则自动休眠功能
+    wifi_info['sleep_time'] = 120
+    # 心跳定时回调
+    wifi_info['heart_call'] = wifi_heart_call
+    # 连接设备变化回调
+    wifi_info['target_link_call'] = wifi_target_link_call
+    # 通信事件回调
+    wifi_info['ex_cmd_call'] = ex_command_data
+    # 程序中断事件
+    wifi_info['interrupt_call'] = sys_interrupt_call
     # 初始化网络
     network_wifi = wifi_network(wifi_info)
     # 指定timer_id，并开始循环接收网络数据
-    network_wifi.start_socket(NET_TIMERID, wifi_target_link_call, ex_command_data, sys_interrupt_call)
+    network_wifi.start_socket(NET_TIMERID)
 
 if __name__ == '__main__':
     run_main()
