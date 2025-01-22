@@ -15,18 +15,14 @@ _IRQ_CENTRAL_DISCONNECT = const(2)
 _IRQ_GATTS_WRITE = const(3)
 _IRQ_GATTS_READ_REQUEST = const(4)
 # 定义支持的服务，0000xxxx-0000-1000-8000-00805f9b34fb为通用字符串
-_UART_UUID = bluetooth.UUID("0000ffe0-0000-1000-8000-00805f9b34fb")
-_UART_TX = (
-    bluetooth.UUID("0000ffe7-0000-1000-8000-00805f9b34fb"),
-    bluetooth.FLAG_NOTIFY,
-)
-_UART_RX = (
-    bluetooth.UUID("0000ffe6-0000-1000-8000-00805f9b34fb"),
-    bluetooth.FLAG_WRITE,
-)
+_SERVICE_UUID = bluetooth.UUID("0000ffe0-0000-1000-8000-00805f9b34fb")
+_CHARACTERISTIC_UUID = bluetooth.UUID("0000ffe6-0000-1000-8000-00805f9b34fb")
 _UART_SERVICE = (
-    _UART_UUID,
-    (_UART_TX, _UART_RX),
+    _SERVICE_UUID,
+    ((
+        _CHARACTERISTIC_UUID,
+        bluetooth.FLAG_READ | bluetooth.FLAG_WRITE,
+    ),)
 )
 
 # name:仅可以为英文，长度不超过16+4个字符
@@ -41,9 +37,9 @@ class CONFIG_BLE:
         self._ble.active(False)
         self._ble.active(True)
         self._ble.irq(self._irq)
-        ((self._handle_tx, self._handle_rx),) = self._ble.gatts_register_services((_UART_SERVICE,))
+        ((self._handle_rw),) = self._ble.gatts_register_services((_UART_SERVICE,))[0]
         # 开始广播
-        self._advertise_data = self.advertising_content(name, _UART_UUID, device_type)
+        self._advertise_data = self.advertising_content(name, _SERVICE_UUID, device_type)
         self._advertise()
     
     # 获取蓝牙广播内容
@@ -88,17 +84,16 @@ class CONFIG_BLE:
             # 接收到消息
             conn_handle, value_handle = data
             value = self._ble.gatts_read(value_handle)
-            if value_handle == self._handle_rx and self._write_callback:
+            if value_handle == self._handle_rw and self._write_callback:
                 self._write_callback(value)
         elif event == _IRQ_GATTS_READ_REQUEST:
             # 接收到读取请求
-            print("_IRQ_GATTS_READ_REQUEST")
             ble.send("give you value")
     
     # 发送消息事件
     def send(self, data):
         if self._connection != None:
-            self._ble.gatts_write(self._handle_tx, data.encode())
+            self._ble.gatts_write(self._handle_rw, data.encode("utf-8"))
 
     # 返回当前是否已连接BLE
     def is_connected(self):
@@ -113,7 +108,7 @@ class CONFIG_BLE:
 if __name__ == "__main__":
     def on_msg_callback(v):
         print("RX", v)
-        ble.send(b'config right')
+        ble.send('config right')
     def on_device_connect():
         pass
     ble = CONFIG_BLE('sin-car-4012', BLE_DEVICE_CAR, on_device_connect, on_msg_callback)

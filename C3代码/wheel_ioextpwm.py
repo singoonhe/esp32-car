@@ -157,5 +157,5 @@ class wheel_ioextpwm:
     # 速度等级转换为pwm
     def convert_level_pwm(self, speed_level):
         level_info = speed_levels_dic[speed_level]
-        self.sg_to_pos = level_info.pos
-        return level_info.pwm
+        self.sg_to_pos = level_info['pos']
+        return level_info['pwm']

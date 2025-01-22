@@ -21,6 +21,7 @@ DIS_TIMERID = const(2)
 
 # 心跳定时回调
 def wifi_heart_call():
+    global battery_update_mark
     # 检查是否需要回传电压数据
     if battery_update_mark and car_wheel.is_stoping():
         cur_battery = car_adc.get_battery_per()

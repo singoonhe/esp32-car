@@ -52,8 +52,8 @@ class wheel_ioext6:
     def send_byte_i2c(self, cur_byte):
         if self.last_byte != cur_byte:
             self.write_buff[0] = cur_byte
-            self.i2c.writeto(self.i2c_addr, self.write_buff)
             self.last_byte = cur_byte
+            self.i2c.writeto(self.i2c_addr, self.write_buff)
             # print('wheel_timer: %d' % i2c_byte)
 
     # 设置某位的状态
