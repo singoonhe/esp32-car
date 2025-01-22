@@ -78,13 +78,13 @@ def run_main():
     # 指定引脚读取ADC
     car_adc = adc_battery(0)
     # 初始化测速
-    car_speed = speed_check(1, 2)
+    car_speed = speed_check(2, 3)
     # 使用io扩展模块，传入i2c引脚及地址、pwm的2个引脚
     car_wheel = wheel_ioextpwm(1, 12, 0x27, 10, 6)
     # 初始化舵机操作
-    car_wheel.init_sg90(2, 6)
+    car_wheel.init_sg90(13, 8)
     # 初始化测距操作
-    car_wheel.init_sensor(4, 6, DIS_TIMERID)
+    car_wheel.init_sensor(5, 4, DIS_TIMERID)
     # 配置AP时的网络信息
     wifi_info = {}
     wifi_info['ap_name'] = 'CAR_HYX'
