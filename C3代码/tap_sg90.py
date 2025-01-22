@@ -4,21 +4,24 @@ from machine import Pin,PWM
 
 class tap_sg90:
     # 初始化方法
-    # dpos:默认档位(1/2)
-    def __init__(self, pin1, pin2, dpos):
+    def __init__(self, pin1, pin2):
         self.sg901_pwm = PWM(Pin(pin1, Pin.OUT))
         self.sg901_pwm.freq(50)
         self.sg902_pwm = PWM(Pin(pin2, Pin.OUT))
         self.sg902_pwm.freq(50)
         # 标记当前舵机是否移动
         self.start_time = 0
+        # 当前档位
+        self.cur_pos = None
         # 中间舵机角度，将舵机移动范围控制在0-180度之间
         self.center_angle = 90
-        self.change_pos(dpos)
+        # self.change_pos(dpos)
 
     # 切换对应的档位(1/2)
     def change_pos(self, pos):
-        self.rotate(pos == 1 and 66 or 0)
+        if self.cur_pos != pos:
+            self.rotate(pos == 1 and 66 or 0)
+            self.cur_pos = pos
         
     # 设置放置角度
     def rotate(self, angle):

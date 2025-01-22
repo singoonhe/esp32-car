@@ -1,42 +1,36 @@
 # ESP32-C3独立控制小车
 from wifi import wifi_network
 from battery import adc_battery
-from hcsr04 import HCSR04
-from tap_sg90 import tap_sg90
+from speed_check import speed_check
 from wheel_ioextpwm import wheel_ioextpwm
 
 # 网络wifi对象
 network_wifi = None
 # 车轮控制对象
 car_wheel = None
-# 舵机控制对象
-car_sg90 = None
 # ADC
 car_adc = None
 # 更新电量标记
 battery_update_mark = False
-# 超声波测距
-car_sensor1 = None
+# 测速对象
+car_speed = None
 
 # timer相关const数据定义
 NET_TIMERID = const(0)
-# 障碍停止距离,cm
-CAR_STOP_DIS = const(10)
-
-# 获取当前障碍物的距离
-def get_front_distance(isFront):
-    distance = 999
-    try:
-        distance = car_sensor1.distance_cm()
-#         print(f'{num}Distance:', distance, 'cm')
-    except OSError as ex:
-        print('ERROR getting distance:', ex)
-    return distance
+DIS_TIMERID = const(2)
 
 # 心跳定时回调
 def wifi_heart_call():
-    # 检查sg90是否需要停止
-    car_sg90.stop()
+    # 检查是否需要回传电压数据
+    if battery_update_mark and car_wheel.is_stoping():
+        cur_battery = car_adc.get_battery_per()
+        network_wifi.send_command_data('Battery', str(cur_battery))
+        battery_update_mark = False
+    # 车轮控制更新
+    car_wheel.update()
+    # 测速更新
+    if car_speed.update():
+        network_wifi.send_command_data('Speed', str(car_speed.get_wheel_speed()))
 
 # 接收到自定义命令数据
 def ex_command_data(cmd_type, cmd_value):
@@ -47,16 +41,9 @@ def ex_command_data(cmd_type, cmd_value):
         if len(move_info) >= 2:
             # 移动方向和速度
             move_dir = int(move_info[0])
-            # 当前言有障碍，则停止移动
-            if move_dir != -1 and (move_dir >= 315 or move_dir <= 225) and get_front_distance() < CAR_STOP_DIS:
-                move_dir = -1
-            car_wheel.set_speed_dir(move_dir, int(move_info[1]))
-            # 上传一次当前电量
-            if battery_update_mark and move_dir == -1:
-                # 发送当前电量值
-                cur_battery = car_adc.get_battery_per()
-                network_wifi.send_command_data('Battery', str(cur_battery))
-                battery_update_mark = False
+            move_level = int(move_info[1])
+            # 转换当前的level到pwm中
+            car_wheel.set_speed_dir(move_dir, move_level)
     elif cmd_type == 'Battery':
         # 标记需要回传电量值
         # 仅电机不转动时才回传电压，避免电量波动
@@ -83,19 +70,20 @@ def sys_interrupt_call():
 
 # 入口方法
 def run_main():
-    global car_wheel
-    global network_wifi
     global car_adc
-    global car_sg90
-    global car_sensor1
+    global car_wheel
+    global car_speed
+    global network_wifi
     # 指定引脚读取ADC
     car_adc = adc_battery(0)
-    # 指定舵机控制对象
-    car_sg90 = tap_sg90(13, 8, 1)
+    # 初始化测速
+    car_speed = speed_check(1, 2)
     # 使用io扩展模块，传入i2c引脚及地址、pwm的2个引脚
     car_wheel = wheel_ioextpwm(1, 12, 0x27, 10, 6)
-    # 添加超声波测距功能（1cm each 29.1us，仅检测50cm范围内）
-    car_sensor1 = HCSR04(trigger_pin=5, echo_pin=4, echo_timeout_us=1500)
+    # 初始化舵机操作
+    car_wheel.init_sg90(2, 6)
+    # 初始化测距操作
+    car_wheel.init_sensor(4, 6, DIS_TIMERID)
     # 配置AP时的网络信息
     wifi_info = {}
     wifi_info['ap_name'] = 'CAR_HYX'

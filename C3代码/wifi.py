@@ -172,24 +172,24 @@ class wifi_network:
             machine.deepsleep()
     
     ###########################Config#############################
-    # 读取配置文件
-    def read_config(self):
-        self.sys_config = {}
-        # 读取配置文件
-        try:
-            file = open('config.txt', 'r')
-            content = file.read()
-            self.sys_config = json.loads(content)
-            file.close()
-        except OSError:  # open failed
-            self.sys_config['wifi_type'] = WIFI_AP
-            self.save_config()
+    # # 读取配置文件
+    # def read_config(self):
+    #     self.sys_config = {}
+    #     # 读取配置文件
+    #     try:
+    #         file = open('config.txt', 'r')
+    #         content = file.read()
+    #         self.sys_config = json.loads(content)
+    #         file.close()
+    #     except OSError:  # open failed
+    #         self.sys_config['wifi_type'] = WIFI_AP
+    #         self.save_config()
 
-    # 保存配置文件
-    def save_config(self):
-        try:
-            file = open('config.txt', 'w')
-            file.write(json.dumps(self.sys_config))
-            file.close()
-        except OSError:  # open failed
-            print("Save config failed!")
+    # # 保存配置文件
+    # def save_config(self):
+    #     try:
+    #         file = open('config.txt', 'w')
+    #         file.write(json.dumps(self.sys_config))
+    #         file.close()
+    #     except OSError:  # open failed
+    #         print("Save config failed!")
