@@ -80,15 +80,18 @@ def run_main():
     # 初始化测速
     car_speed = speed_check(2, 3)
     # 使用io扩展模块，传入i2c引脚及地址、pwm的2个引脚
-    car_wheel = wheel_ioextpwm(1, 12, 0x27, 10, 6)
+    car_wheel = wheel_ioextpwm(1, 12, 0x20, 10, 6)
     # 初始化舵机操作
-    car_wheel.init_sg90(13, 8)
+    car_wheel.init_sg90(13, 5)
     # 初始化测距操作
-    car_wheel.init_sensor(5, 4, DIS_TIMERID)
+    car_wheel.init_sensor(8, 9, DIS_TIMERID)
     # 配置AP时的网络信息
     wifi_info = {}
+    wifi_info['ap_state'] = False
     wifi_info['ap_name'] = 'CAR_HYX'
     wifi_info['ap_psd'] = 'HF123456'
+    wifi_info['ssid'] = 'HUAWEI-HF'
+    wifi_info['psd'] = 'HF123456'
     # 开启心跳功能
     wifi_info['cmd_heart'] = True
     # 120s未连接则自动休眠功能
