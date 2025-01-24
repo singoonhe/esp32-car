@@ -14,6 +14,8 @@ car_adc = None
 battery_update_mark = False
 # 测速对象
 car_speed = None
+# 标记是否从boot启动的
+# start_boot = False
 
 # timer相关const数据定义
 NET_TIMERID = const(0)
@@ -24,9 +26,13 @@ def wifi_heart_call():
     global battery_update_mark
     # 检查是否需要回传电压数据
     if battery_update_mark and car_wheel.is_stoping():
-        cur_battery = car_adc.get_battery_per()
+        cur_battery = car_adc.update_battery_per()
+#         print("cur_battery:" + str(cur_battery))
         network_wifi.send_command_data('Battery', str(cur_battery))
         battery_update_mark = False
+        # 电量检查, lowpower时闪烁
+        if cur_battery == 0:
+            car_wheel.set_led_connected(False)
     # 车轮控制更新
     car_wheel.update()
     # 测速更新
@@ -36,7 +42,7 @@ def wifi_heart_call():
 # 接收到自定义命令数据
 def ex_command_data(cmd_type, cmd_value):
     global battery_update_mark
-    if cmd_type == 'Move':
+    if cmd_type == 'Move' and car_adc.get_battery_per() > 0:
         # 接收到移动事件
         move_info = cmd_value.split('|')
         if len(move_info) >= 2:
@@ -82,7 +88,7 @@ def run_main():
     # 使用io扩展模块，传入i2c引脚及地址、pwm的2个引脚
     car_wheel = wheel_ioextpwm(1, 12, 0x20, 10, 6)
     # 初始化舵机操作
-    car_wheel.init_sg90(13, 5)
+    car_wheel.init_sg90(5, 13)
     # 初始化测距操作
     car_wheel.init_sensor(8, 9, DIS_TIMERID)
     # 配置AP时的网络信息

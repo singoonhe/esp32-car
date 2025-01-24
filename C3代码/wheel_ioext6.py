@@ -17,16 +17,16 @@ class wheel_ioext6:
     def set_motors_state(self, state):
         cur_byte = self.last_byte
         # 先清除对应位的值
-        cur_byte = cur_byte & 0b00001111
+        cur_byte = cur_byte & 0b11110000
         # 设置左电机、右电机的状态
         if state == 1:
-            cur_byte = cur_byte|0b01010000
+            cur_byte = cur_byte|0b00000110
         elif state == 2:
-            cur_byte = cur_byte|0b01100000
+            cur_byte = cur_byte|0b00000101
         elif state == -1:
-            cur_byte = cur_byte|0b10100000
+            cur_byte = cur_byte|0b00001001
         elif state == -2:
-            cur_byte = cur_byte|0b10010000
+            cur_byte = cur_byte|0b00001010
         # 设置当前byte值
         self.send_byte_i2c(cur_byte)
 
@@ -54,7 +54,7 @@ class wheel_ioext6:
             self.write_buff[0] = cur_byte
             self.last_byte = cur_byte
             self.i2c.writeto(self.i2c_addr, self.write_buff)
-            # print('wheel_timer: %d' % i2c_byte)
+#             print('wheel_timer: %d' % cur_byte)
 
     # 设置某位的状态
     def set_bit_value(self, bit, value):
