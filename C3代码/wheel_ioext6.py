@@ -22,11 +22,13 @@ class wheel_ioext6:
         if state == 1:
             cur_byte = cur_byte|0b00000110
         elif state == 2:
-            cur_byte = cur_byte|0b00000101
+            # 同直行，靠速度差转弯
+            cur_byte = cur_byte|0b00000110
         elif state == -1:
             cur_byte = cur_byte|0b00001001
         elif state == -2:
-            cur_byte = cur_byte|0b00001010
+            # 同直行，靠速度差转弯
+            cur_byte = cur_byte|0b00000110
         # 设置当前byte值
         self.send_byte_i2c(cur_byte)
 

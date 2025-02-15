@@ -101,17 +101,18 @@ class wheel_ioextpwm:
         self.ioext.set_motors_state(self.move_state)
         # 控制电机的频率
         if self.move_state != 0:
-            speed_pwm = self.convert_level_pwm(speed_level)
-            # 减去pwm基础值
-            pwm_offset = speed_pwm - self.min_pwm
-            if left_pwm_rate <= 0:
+            if self.move_state == 1 or self.move_state == -1:
+                speed_pwm = self.convert_level_pwm(speed_level)
+                self.pwm1.duty(speed_pwm)
+                self.pwm2.duty(speed_pwm)
+            elif self.move_state == 2:
+                # 靠速度差转弯
                 self.pwm1.duty(0)
-            else:
-                self.pwm1.duty(int(self.min_pwm + pwm_offset * left_pwm_rate))
-            if right_pwm_rate <= 0:
+                self.pwm2.duty(1023)
+            elif self.move_state == -2:
+                # 靠速度差转弯
+                self.pwm1.duty(1023)
                 self.pwm2.duty(0)
-            else:
-                self.pwm2.duty(int(self.min_pwm + pwm_offset * right_pwm_rate))
 #             print(f"left_pwm_rate:{left_pwm_rate}, {right_pwm_rate}")
     
     # 获取当前电机是否静止中
