@@ -6,7 +6,7 @@ from machine import Timer, Pin, PWM
 from wheel_ioext6 import wheel_ioext6
 
 # 障碍停止距离,cm
-CAR_STOP_DIS = const(10)
+CAR_STOP_DIS = const(15)
 # 速度对应的pwm值
 speed_levels_dic = [{'pos':1, 'pwm':205}, {'pos':1, 'pwm':315}, {'pos':1, 'pwm':475},
                     {'pos':1, 'pwm':650}, {'pos':1, 'pwm':825}, {'pos':1, 'pwm':1023},
@@ -61,20 +61,28 @@ class wheel_ioextpwm:
             # 转换方向到-45~225之间
             if move_dir >= 315:
                 move_dir -= 360
-            if move_dir < 10:
-                right_pwm_rate = 0
-            elif move_dir > 80:
-                right_pwm_rate = 1
+            
+            if move_dir >= -45 and move_dir <=45:
+                self.move_state = 2
+            elif move_dir >= 135 and move_dir <=225:
+                self.move_state = -2
             else:
-                right_pwm_rate = (move_dir - 10) / (80 - 10)
-            if move_dir > 170:
-                left_pwm_rate = 0
-            elif move_dir < 100:
-                left_pwm_rate = 1
-            else:
-                left_pwm_rate = (170 - move_dir) / (170 - 100)
-            # 直行
-            self.move_state = 1
+                self.move_state = 1
+            
+#             if move_dir < 10:
+#                 right_pwm_rate = 0
+#             elif move_dir > 80:
+#                 right_pwm_rate = 1
+#             else:
+#                 right_pwm_rate = (move_dir - 10) / (80 - 10)
+#             if move_dir > 170:
+#                 left_pwm_rate = 0
+#             elif move_dir < 100:
+#                 left_pwm_rate = 1
+#             else:
+#                 left_pwm_rate = (170 - move_dir) / (170 - 100)
+#             # 直行
+#             self.move_state = 1
         # 是否开启定时测距
         if old_move_state != self.move_state:
             if self.move_state == 1:
@@ -137,6 +145,7 @@ class wheel_ioextpwm:
         self.sensor_work_time += 1
         if self.sensor_work_time > self.sensor_work_interval:
             cur_sensor_dis = self.get_front_distance()
+#             print("cur_sensor_dis:" +str(cur_sensor_dis) + " time:"+str(time.time()))
             # 运行时检测到当前距离过近，则停止运动
             if cur_sensor_dis < CAR_STOP_DIS:
                 self.set_speed_dir(-1, 0)
@@ -147,12 +156,12 @@ class wheel_ioextpwm:
 
     # 根据当前距离计算下次测距间隔
     def calc_sensor_interval(self, car_dis):
-        if car_dis <= 20:
+        if car_dis <= 30:
             return 1
         elif car_dis >= 180:
             return 10
         else:
-            return 0.05625 * car_dis - 0.125
+            return 0.06 * (car_dis - 30) + 1
 
     # 设置led提示灯的状态
     #value:灯控制值，0或1

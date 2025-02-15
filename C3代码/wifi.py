@@ -103,7 +103,7 @@ class wifi_network:
         except KeyboardInterrupt:
             print('system interrupt')
             if self.interrupt_call is not None:
-                self.interrupt_call(False)
+                self.interrupt_call()
 
     # 接收到命令数据
     def recv_data(self, data, addr):

@@ -32,6 +32,8 @@ class speed_check:
             self.cur_speed = round((self.trigger_count1 + self.trigger_count2) * 0.5)
             self.trigger_count1 = 0
             self.trigger_count2 = 0
+            return True
+        return False
 
     # 获取当前的运转速度
     def get_wheel_speed(self):
